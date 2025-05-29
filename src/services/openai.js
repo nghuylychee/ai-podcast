@@ -5,6 +5,14 @@ const openai = new OpenAI({
   dangerouslyAllowBrowser: true
 });
 
+// Function to detect language from text
+const detectLanguage = (text) => {
+  if (!text) return 'en';
+  // Simple detection based on common Vietnamese diacritical marks
+  const vietnamesePattern = /[àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđ]/i;
+  return vietnamesePattern.test(text) ? 'vi' : 'en';
+};
+
 // Mock data for testing without API
 const MOCK_RESPONSES = {
   "artificial intelligence": {
@@ -53,75 +61,114 @@ const MOCK_RESPONSES = {
   }
 };
 
-// Function to detect language from text
-const detectLanguage = async (text) => {
-  try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-3.5-turbo",
-      messages: [
-        {
-          role: "system",
-          content: "You are a language detector. Respond with only the ISO 639-1 language code (e.g., 'en', 'vi', 'ja', etc.)"
-        },
-        {
-          role: "user",
-          content: `What is the language of this text: "${text}"`
-        }
-      ],
-      temperature: 0.3,
-      max_tokens: 10,
-    });
-
-    return response.choices[0].message.content.trim().toLowerCase();
-  } catch (error) {
-    console.error('Language detection error:', error);
-    return 'en'; // Default to English if detection fails
-  }
-};
-
 export const generatePodcastContent = async (topic) => {
   try {
     // Detect language of the topic
-    const language = await detectLanguage(topic);
-    console.log('Detected language:', language);
+    const language = detectLanguage(topic);
+    console.log('OpenAI detected language:', language);
 
     // Create system prompt based on detected language
-    const systemPrompt = {
-      en: `You are a professional TikTok content creator and storyteller. 
-           Create engaging, informative, and entertaining content that hooks listeners in the first few seconds.
-           Focus on creating content that is:
-           - Conversational and natural in tone
-           - Rich in interesting facts and insights
-           - Engaging with hooks and cliffhangers
-           - Suitable for a TikTok/short-form content audience
-           - Educational yet entertaining`,
-      vi: `Bạn là một người tạo nội dung TikTok chuyên nghiệp và người kể chuyện.
-           Tạo nội dung hấp dẫn, nhiều thông tin và giải trí, thu hút người nghe trong vài giây đầu tiên.
-           Tập trung tạo nội dung:
-           - Giọng điệu tự nhiên và gần gũi
-           - Phong phú về thông tin và kiến thức thú vị
-           - Hấp dẫn với các hook và tình tiết gay cấn
-           - Phù hợp với khán giả TikTok/nội dung ngắn
-           - Mang tính giáo dục nhưng vẫn giải trí`
-    }[language] || systemPrompt.en;
+    const systemPrompt = language === 'vi'
+      ? `Bạn là một người kể chuyện và giáo dục viên chuyên nghiệp. Nhiệm vụ của bạn là tạo nội dung podcast giáo dục hấp dẫn.
 
-    // Create user prompt based on detected language
-    const userPrompt = {
-      en: `Create a 1-3 minute TikTok-style educational podcast script about ${topic}. Include:
-           1. A powerful hook in the first 5 seconds to grab attention
-           2. 2-3 fascinating main points that will surprise the audience
-           3. Engaging transitions and mini-cliffhangers between points
-           4. A strong conclusion with a call-to-action
-           5. Conversational language with occasional humor
-           6. Questions or statements that make listeners think`,
-      vi: `Tạo kịch bản podcast giáo dục kiểu TikTok dài 1-3 phút về ${topic}. Bao gồm:
-           1. Một hook mạnh mẽ trong 5 giây đầu tiên để thu hút sự chú ý
-           2. 2-3 điểm chính thú vị sẽ khiến khán giả bất ngờ
-           3. Chuyển cảnh hấp dẫn và tình tiết gay cấn giữa các điểm
-           4. Kết luận mạnh mẽ với lời kêu gọi hành động
-           5. Ngôn ngữ gần gũi với chút hài hước
-           6. Câu hỏi hoặc phát biểu khiến người nghe suy nghĩ`
-    }[language] || userPrompt.en;
+         Yêu cầu về nội dung:
+         - Độ dài 2-3 phút (khoảng 300-450 từ)
+         - Giọng điệu tự nhiên, thân thiện như đang trò chuyện
+         - Sử dụng câu hỏi để tạo tò mò
+         - Thêm ví dụ thực tế và so sánh để dễ hiểu
+         - Tập trung vào một ý tưởng chính và phát triển sâu
+         - Kết thúc với thông điệp đáng nhớ
+         
+         Cấu trúc nội dung:
+         1. Hook (15-20s): Câu mở đầu gây tò mò hoặc fact thú vị
+         2. Giới thiệu (20-30s): Giới thiệu chủ đề và tại sao nó quan trọng
+         3. Nội dung chính (60-90s): Giải thích chi tiết với ví dụ cụ thể
+         4. Kết luận (15-20s): Tóm tắt và thông điệp chính
+         
+         Khi chia segments:
+         - Mỗi segment 2-3 câu liên quan đến nhau
+         - Độ dài mỗi segment 10-15 giây
+         - Đảm bảo thời gian segments liên tục và không chồng lấp
+         - Tổng thời gian các segments phải bằng duration`
+      : `You are a professional storyteller and educator. Your task is to create engaging educational podcast content.
+
+         Content requirements:
+         - Length: 2-3 minutes (about 300-450 words)
+         - Natural, conversational tone
+         - Use questions to spark curiosity
+         - Include real examples and analogies
+         - Focus on one main idea and develop it deeply
+         - End with a memorable message
+         
+         Content structure:
+         1. Hook (15-20s): Curiosity-sparking opening or interesting fact
+         2. Introduction (20-30s): Introduce topic and why it matters
+         3. Main content (60-90s): Detailed explanation with specific examples
+         4. Conclusion (15-20s): Summary and key message
+         
+         When creating segments:
+         - Each segment should be 2-3 related sentences
+         - Length of each segment: 10-15 seconds
+         - Ensure segment times are continuous and non-overlapping
+         - Total segment time should match duration`;
+
+    const userPrompt = language === 'vi' 
+      ? `Tạo một bài podcast ngắn (2-3 phút) về chủ đề: ${topic}
+
+         Format kết quả như sau:
+         {
+           "title": "Tiêu đề thu hút",
+           "description": "Mô tả ngắn gọn, hấp dẫn",
+           "script": "Nội dung kể chuyện hoàn chỉnh",
+           "segments": [
+             {
+               "text": "Đoạn văn bản (2-3 câu)",
+               "start": "Thời gian bắt đầu (giây)",
+               "end": "Thời gian kết thúc (giây)"
+             }
+           ],
+           "duration": "Thời lượng ước tính (giây)",
+           "hashtags": ["Các hashtag liên quan"]
+         }
+
+         LƯU Ý:
+         - Script là nội dung hoàn chỉnh để đọc
+         - Chia segments thành các đoạn 2-3 câu từ script
+         - Mỗi đoạn khoảng 10-15 giây
+         - Thời gian start/end phải liên tục và không chồng lấp
+         - Nội dung phải tự nhiên như đang kể chuyện
+         - Mở đầu bằng một câu hook thu hút sự tò mò
+         - Sử dụng ngôn ngữ dễ hiểu nhưng không đơn giản
+         - Thêm các ví dụ và so sánh để dễ hiểu
+         - Kết thúc với một thông điệp đáng nhớ`
+      : `Create a short podcast (2-3 minutes) about: ${topic}
+
+         Format the response as:
+         {
+           "title": "Engaging title",
+           "description": "Brief, captivating description",
+           "script": "Complete storytelling script",
+           "segments": [
+             {
+               "text": "Text segment (2-3 sentences)",
+               "start": "Start time in seconds",
+               "end": "End time in seconds"
+             }
+           ],
+           "duration": "Estimated duration in seconds",
+           "hashtags": ["Relevant hashtags"]
+         }
+
+         NOTE:
+         - Script is the complete content for TTS
+         - Break script into 2-3 sentence segments
+         - Each segment should be about 10-15 seconds
+         - Start/end times must be continuous and non-overlapping
+         - Content should flow naturally like storytelling
+         - Start with a hook that sparks curiosity
+         - Use accessible language without oversimplifying
+         - Include examples and analogies for clarity
+         - End with a memorable message`;
 
     const completion = await openai.chat.completions.create({
       model: "gpt-3.5-turbo",
@@ -132,74 +179,51 @@ export const generatePodcastContent = async (topic) => {
         },
         {
           role: "user",
-          content: `${userPrompt}
-          
-          Format the response as a JSON with:
-          {
-            "title": "Attention-grabbing title",
-            "description": "Engaging description",
-            "hook": "The opening hook (first 5-10 seconds)",
-            "script": "The full script",
-            "duration": "Estimated duration in minutes",
-            "keyPoints": ["Array of key points"],
-            "hashtags": ["Relevant hashtags"],
-            "callToAction": "The call-to-action for viewers"
-          }`
+          content: userPrompt
         }
       ],
-      temperature: 0.8,
-      max_tokens: 1000,
+      temperature: 0.7,
+      max_tokens: 2000,
     });
+
+    // Log the raw response
+    console.log('Raw OpenAI response:', completion.choices[0].message.content);
 
     const content = JSON.parse(completion.choices[0].message.content);
     
-    // Add background music suggestion based on content and language
-    content.musicSuggestion = await suggestBackgroundMusic(topic, content.title, language);
+    // Log the parsed content
+    console.log('Parsed content:', {
+      title: content.title,
+      description: content.description,
+      scriptLength: content.script?.length || 0,
+      segmentsCount: content.segments?.length || 0,
+      duration: content.duration,
+      hashtags: content.hashtags
+    });
+
+    // Validate content structure
+    if (!content.script || !content.segments || content.segments.length === 0) {
+      console.error('Invalid content structure:', content);
+      throw new Error('Generated content is missing required fields');
+    }
+
+    // Transform content for the podcast player
+    const transformedContent = {
+      id: Date.now().toString(),
+      title: content.title,
+      topic: topic,
+      script: content.script,
+      segments: content.segments,
+      duration: Math.ceil(parseInt(content.duration) / 60), // Convert seconds to minutes
+      hashtags: content.hashtags
+    };
+
+    // Log the final transformed content
+    console.log('Transformed content:', transformedContent);
     
-    return content;
+    return transformedContent;
   } catch (error) {
     console.error('Error generating podcast content:', error);
     throw error;
   }
 };
-
-// Helper function to suggest background music
-async function suggestBackgroundMusic(topic, title, language = 'en') {
-  try {
-    const prompt = {
-      en: `Suggest background music style and mood for a TikTok-style educational podcast about "${topic}" with title "${title}"`,
-      vi: `Gợi ý phong cách và tâm trạng của nhạc nền cho podcast giáo dục kiểu TikTok về "${topic}" với tiêu đề "${title}"`
-    }[language] || prompt.en;
-
-    const completion = await openai.chat.completions.create({
-      model: "gpt-3.5-turbo",
-      messages: [
-        {
-          role: "system",
-          content: "You are a music supervisor who suggests perfect background music for content."
-        },
-        {
-          role: "user",
-          content: `${prompt}
-          Format response as JSON: {
-            "style": "Music style/genre",
-            "mood": "Mood/emotion of the music",
-            "tempo": "Suggested tempo (BPM)",
-            "description": "Brief description of ideal background music"
-          }`
-        }
-      ],
-      temperature: 0.7,
-    });
-
-    return JSON.parse(completion.choices[0].message.content);
-  } catch (error) {
-    console.error('Error suggesting background music:', error);
-    return {
-      style: "Ambient",
-      mood: "Neutral",
-      tempo: "Medium",
-      description: "Subtle background music that won't overpower the voice"
-    };
-  }
-} 
