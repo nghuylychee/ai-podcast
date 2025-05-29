@@ -1,0 +1,44 @@
+{
+  "podcasts": [
+    {
+      "id": "001",
+      "title": "The Fall of the Roman Empire",
+      "topic": "History",
+      "audio_url": "https://assets.mixkit.co/music/preview/mixkit-tech-house-vibes-130.mp3",
+      "duration": 60,
+      "background_img": "https://images.unsplash.com/photo-1552832230-c0197dd311b5?ixlib=rb-4.0.3"
+    },
+    {
+      "id": "002",
+      "title": "3 Daily Habits That Will Change Your Life",
+      "topic": "Self-help",
+      "audio_url": "https://assets.mixkit.co/music/preview/mixkit-dreaming-big-31.mp3",
+      "duration": 60,
+      "background_img": "https://images.unsplash.com/photo-1506126613408-eca07ce68773?ixlib=rb-4.0.3"
+    },
+    {
+      "id": "003",
+      "title": "The Haunted House on Elm Street",
+      "topic": "Horror",
+      "audio_url": "https://assets.mixkit.co/music/preview/mixkit-horror-game-background-2-14099.mp3",
+      "duration": 60,
+      "background_img": "https://images.unsplash.com/photo-1520263115673-610416f52ab6?ixlib=rb-4.0.3"
+    },
+    {
+      "id": "004",
+      "title": "How Amazon Dominated E-commerce",
+      "topic": "Business",
+      "audio_url": "https://assets.mixkit.co/music/preview/mixkit-corporate-achievement-231.mp3",
+      "duration": 60,
+      "background_img": "https://images.unsplash.com/photo-1523474253046-8cd2748b5fd2?ixlib=rb-4.0.3"
+    },
+    {
+      "id": "005",
+      "title": "The Science of Black Holes",
+      "topic": "Science",
+      "audio_url": "https://assets.mixkit.co/music/preview/mixkit-space-game-668.mp3",
+      "duration": 60,
+      "background_img": "https://images.unsplash.com/photo-1462331940025-496dfbfc7564?ixlib=rb-4.0.3"
+    }
+  ]
+} 

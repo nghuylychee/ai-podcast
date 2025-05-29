@@ -1,0 +1,102 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --primary-color: #2563eb;
+  --background-color: #0f172a;
+  --text-color: #f8fafc;
+  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+
+  color-scheme: light dark;
+  color: rgba(255, 255, 255, 0.87);
+  background-color: #242424;
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+a {
+  font-weight: 500;
+  color: #646cff;
+  text-decoration: inherit;
+}
+a:hover {
+  color: #535bf2;
+}
+
+html, body {
+  @apply overflow-hidden;
+  margin: 0;
+  padding: 0;
+  height: 100vh;
+  width: 100vw;
+}
+
+body {
+  @apply bg-slate-900 text-slate-50;
+  font-family: system-ui, -apple-system, sans-serif;
+}
+
+#root {
+  @apply h-full w-full;
+}
+
+.app-container {
+  @apply h-full w-full flex flex-col;
+}
+
+.header {
+  @apply fixed top-0 left-0 right-0 z-50 px-6 py-4 bg-gradient-to-b from-black/60 to-transparent;
+}
+
+.footer {
+  @apply fixed bottom-0 left-0 right-0 z-50 px-6 py-4 bg-gradient-to-t from-black/60 to-transparent;
+}
+
+.podcast-container {
+  @apply h-full w-full overflow-hidden relative;
+}
+
+.podcast-card {
+  @apply h-full w-full relative flex items-center justify-center;
+  background-size: cover;
+  background-position: center;
+}
+
+.podcast-content {
+  @apply absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-black/80 to-transparent;
+}
+
+.podcast-title {
+  @apply text-2xl font-bold mb-2;
+}
+
+.podcast-topic {
+  @apply inline-block px-3 py-1 rounded-full bg-primary text-sm font-medium;
+}
+
+.controls {
+  @apply fixed bottom-20 left-0 right-0 flex justify-center gap-4 z-50;
+}
+
+.control-button {
+  @apply p-3 rounded-full bg-white/10 backdrop-blur-lg hover:bg-white/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    color: #213547;
+    background-color: #ffffff;
+  }
+  a:hover {
+    color: #747bff;
+  }
+  button {
+    background-color: #f9f9f9;
+  }
+}
