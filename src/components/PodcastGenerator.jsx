@@ -7,7 +7,8 @@ import {
   MicrophoneIcon,
   SparklesIcon,
   ArrowPathIcon,
-  XMarkIcon
+  XMarkIcon,
+  PaperAirplaneIcon
 } from '@heroicons/react/24/solid';
 
 const PodcastGenerator = ({ onPodcastGenerated, onClose }) => {
@@ -47,16 +48,16 @@ const PodcastGenerator = ({ onPodcastGenerated, onClose }) => {
   const handleGenerate = async () => {
     if (!topic) return;
     setIsGenerating(true);
+    setShowSuggestions(false);
     
     try {
-      setProgress({ step: 1, message: 'Đang tạo nội dung podcast...' });
+      setProgress({ step: 1, message: 'Creating podcast content...' });
       const content = await generatePodcastContent(topic);
       
-      setProgress({ step: 2, message: 'Đang chuyển văn bản thành giọng nói...' });
+      setProgress({ step: 2, message: 'Converting text to speech...' });
       const audioPath = await textToSpeech(content.script);
       
       try {
-        // Test audio file
         const testAudio = new Audio();
         testAudio.src = audioPath;
         
@@ -97,14 +98,14 @@ const PodcastGenerator = ({ onPodcastGenerated, onClose }) => {
         };
 
         onPodcastGenerated(podcast);
-        setProgress({ step: 3, message: 'Hoàn thành!' });
+        setProgress({ step: 3, message: 'Complete!' });
       } catch (error) {
-        console.error('Lỗi khi xử lý audio:', error);
-        throw new Error(`Lỗi xử lý audio: ${error.message}`);
+        console.error('Error processing audio:', error);
+        throw new Error(`Audio processing error: ${error.message}`);
       }
     } catch (error) {
-      console.error('Lỗi khi tạo podcast:', error);
-      setProgress({ step: -1, message: `Lỗi: ${error.message}` });
+      console.error('Error generating podcast:', error);
+      setProgress({ step: -1, message: `Error: ${error.message}` });
     } finally {
       setIsGenerating(false);
     }
@@ -115,33 +116,76 @@ const PodcastGenerator = ({ onPodcastGenerated, onClose }) => {
       initial={{ opacity: 0, y: 100 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: 100 }}
-      className="fixed inset-0 flex items-center justify-center bg-black/80 backdrop-blur-sm z-50 p-4"
+      className="fixed inset-0 flex items-center justify-center backdrop-blur-sm z-50"
     >
-      <div className="relative w-full max-w-md bg-gradient-to-br from-gray-900 to-gray-800 rounded-2xl shadow-xl overflow-hidden">
-        {/* Close button */}
-        <button 
-          onClick={onClose}
-          className="absolute top-4 right-4 text-white/60 hover:text-white"
-        >
-          <XMarkIcon className="w-6 h-6" />
-        </button>
-
-        <div className="p-6">
-          <div className="flex items-center gap-3 mb-6">
-            <MicrophoneIcon className="w-8 h-8 text-blue-500" />
-            <h2 className="text-2xl font-bold text-white">Create New Podcast</h2>
+      <div className="relative w-full max-w-2xl h-[600px] bg-[#1a1a1a] rounded-2xl shadow-xl overflow-hidden flex flex-col">
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-white/10">
+          <div className="flex items-center gap-3">
+            <MicrophoneIcon className="w-6 h-6 text-blue-500" />
+            <h2 className="text-lg font-semibold text-white">AI Podcast Generator</h2>
           </div>
+          <button 
+            onClick={onClose}
+            className="text-white/60 hover:text-white"
+          >
+            <XMarkIcon className="w-6 h-6" />
+          </button>
+        </div>
 
-          {/* Topic Input */}
-          <div className="space-y-4">
-            <div className="relative">
+        {/* Main Content Area */}
+        <div className="flex-1 overflow-y-auto p-6 space-y-4">
+          {/* Suggestions */}
+          <div className="grid grid-cols-2 gap-4">
+            {suggestedTopics.map((item) => (
+              <button
+                key={item.topic}
+                onClick={() => {
+                  setTopic(item.topic);
+                  setShowSuggestions(false);
+                }}
+                className="p-4 rounded-xl bg-white/5 hover:bg-white/10 transition-colors text-left group border border-white/10"
+              >
+                <div className="flex items-center gap-3 mb-2">
+                  <span className="text-2xl">{item.emoji}</span>
+                  <div className="font-medium text-white group-hover:text-blue-400 transition-colors">
+                    {item.topic}
+                  </div>
+                </div>
+                <p className="text-sm text-white/60">
+                  {item.description}
+                </p>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Input Area */}
+        <div className="p-4 border-t border-white/10">
+          {isGenerating && (
+            <div className="mb-4">
+              <div className="h-1.5 bg-white/10 rounded-full overflow-hidden">
+                <motion.div
+                  className="h-full bg-blue-500"
+                  initial={{ width: "0%" }}
+                  animate={{ width: `${(progress.step / 3) * 100}%` }}
+                  transition={{ duration: 0.5 }}
+                />
+              </div>
+              <p className="text-sm text-white/60 mt-2 text-center">
+                {progress.message}
+              </p>
+            </div>
+          )}
+          
+          <div className="relative flex items-end gap-2">
+            <div className="flex-1 min-h-[20px] relative">
               <input
                 type="text"
                 value={topic}
                 onChange={(e) => setTopic(e.target.value)}
-                onFocus={() => setShowSuggestions(true)}
-                placeholder="What's your podcast about?"
-                className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/40 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all"
+                placeholder="Enter a topic for your podcast..."
+                className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/40 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all pr-10"
                 disabled={isGenerating}
               />
               {topic && !isGenerating && (
@@ -153,79 +197,21 @@ const PodcastGenerator = ({ onPodcastGenerated, onClose }) => {
                 </button>
               )}
             </div>
-
-            {/* Topic Suggestions */}
-            <AnimatePresence>
-              {showSuggestions && !isGenerating && (
-                <motion.div
-                  initial={{ opacity: 0, y: -10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                  className="space-y-2"
-                >
-                  {suggestedTopics.map((item) => (
-                    <button
-                      key={item.topic}
-                      onClick={() => {
-                        setTopic(item.topic);
-                        setShowSuggestions(false);
-                      }}
-                      className="w-full p-3 flex items-start gap-3 rounded-xl hover:bg-white/5 transition-colors text-left group"
-                    >
-                      <span className="text-2xl">{item.emoji}</span>
-                      <div>
-                        <div className="font-medium text-white group-hover:text-blue-400 transition-colors">
-                          {item.topic}
-                        </div>
-                        <div className="text-sm text-white/60">
-                          {item.description}
-                        </div>
-                      </div>
-                    </button>
-                  ))}
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-            {/* Generate Button */}
             <button
               onClick={handleGenerate}
               disabled={!topic || isGenerating}
-              className={`w-full py-3 px-4 rounded-xl text-white font-medium flex items-center justify-center gap-2 transition-all ${
+              className={`p-3 rounded-xl text-white font-medium flex items-center justify-center transition-all ${
                 !topic || isGenerating
                   ? 'bg-white/10 cursor-not-allowed'
                   : 'bg-blue-500 hover:bg-blue-600'
               }`}
             >
               {isGenerating ? (
-                <>
-                  <ArrowPathIcon className="w-5 h-5 animate-spin" />
-                  Creating...
-                </>
+                <ArrowPathIcon className="w-5 h-5 animate-spin" />
               ) : (
-                <>
-                  <SparklesIcon className="w-5 h-5" />
-                  Create Podcast
-                </>
+                <PaperAirplaneIcon className="w-5 h-5" />
               )}
             </button>
-
-            {/* Progress Indicator */}
-            {isGenerating && (
-              <div className="mt-4">
-                <div className="h-1.5 bg-white/10 rounded-full overflow-hidden">
-                  <motion.div
-                    className="h-full bg-blue-500"
-                    initial={{ width: "0%" }}
-                    animate={{ width: `${(progress.step / 3) * 100}%` }}
-                    transition={{ duration: 0.5 }}
-                  />
-                </div>
-                <p className="text-sm text-white/60 mt-2 text-center">
-                  {progress.message}
-                </p>
-              </div>
-            )}
           </div>
         </div>
       </div>
