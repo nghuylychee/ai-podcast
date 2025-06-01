@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { generatePodcastContent } from '../services/openai';
-import { textToSpeech } from '../services/tts';
+import { textToSpeech } from '../services/geminiTTS';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   HashtagIcon, 
@@ -49,28 +49,62 @@ const PodcastGenerator = ({ onPodcastGenerated, onClose }) => {
     setIsGenerating(true);
     
     try {
-      setProgress({ step: 1, message: 'Creating your podcast...' });
+      setProgress({ step: 1, message: 'Đang tạo nội dung podcast...' });
       const content = await generatePodcastContent(topic);
       
-      setProgress({ step: 2, message: 'Adding voice...' });
-      const audioBlob = await textToSpeech(content.script);
+      setProgress({ step: 2, message: 'Đang chuyển văn bản thành giọng nói...' });
+      const audioPath = await textToSpeech(content.script);
+      
+      try {
+        // Test audio file
+        const testAudio = new Audio();
+        testAudio.src = audioPath;
+        
+        await new Promise((resolve, reject) => {
+          const timeout = setTimeout(() => {
+            testAudio.removeEventListener('canplaythrough', handleCanPlay);
+            testAudio.removeEventListener('error', handleError);
+            reject(new Error('Audio test timeout'));
+          }, 5000);
 
-      const audioUrl = URL.createObjectURL(audioBlob);
-      const podcast = {
-        id: Date.now().toString(),
-        title: content.title,
-        topic: topic,
-        audio_url: audioUrl,
-        duration: content.duration,
-        segments: content.segments,
-        background_img: `https://source.unsplash.com/random/800x600/?${topic.replace(' ', '+')}`,
-      };
+          const handleCanPlay = () => {
+            clearTimeout(timeout);
+            testAudio.removeEventListener('error', handleError);
+            console.log('Audio test successful');
+            resolve();
+          };
 
-      onPodcastGenerated(podcast);
-      setProgress({ step: 3, message: 'Done!' });
+          const handleError = (e) => {
+            clearTimeout(timeout);
+            testAudio.removeEventListener('canplaythrough', handleCanPlay);
+            console.error('Audio test failed:', e);
+            reject(new Error('Audio test failed'));
+          };
+
+          testAudio.addEventListener('canplaythrough', handleCanPlay);
+          testAudio.addEventListener('error', handleError);
+          testAudio.load();
+        });
+
+        const podcast = {
+          id: Date.now().toString(),
+          title: content.title,
+          topic: topic,
+          audio_url: audioPath,
+          duration: content.duration,
+          segments: content.segments,
+          background_img: `https://source.unsplash.com/random/800x600/?${topic.replace(' ', '+')}`,
+        };
+
+        onPodcastGenerated(podcast);
+        setProgress({ step: 3, message: 'Hoàn thành!' });
+      } catch (error) {
+        console.error('Lỗi khi xử lý audio:', error);
+        throw new Error(`Lỗi xử lý audio: ${error.message}`);
+      }
     } catch (error) {
-      console.error('Error generating podcast:', error);
-      setProgress({ step: -1, message: `Error: ${error.message}` });
+      console.error('Lỗi khi tạo podcast:', error);
+      setProgress({ step: -1, message: `Lỗi: ${error.message}` });
     } finally {
       setIsGenerating(false);
     }

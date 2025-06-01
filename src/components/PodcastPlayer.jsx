@@ -11,8 +11,12 @@ import {
   SpeakerWaveIcon as VolumeHighIcon,
   MinusIcon,
   PlusIcon,
-  DocumentTextIcon
+  VideoCameraIcon,
+  ShareIcon,
+  ArrowDownTrayIcon
 } from '@heroicons/react/24/solid';
+import StoryRecorder from './StoryRecorder';
+import ShareStoryModal from './ShareStoryModal';
 
 const PodcastPlayer = ({ podcast, onNext, onPrevious }) => {
   const [isPlaying, setIsPlaying] = useState(false);
@@ -23,7 +27,8 @@ const PodcastPlayer = ({ podcast, onNext, onPrevious }) => {
   const [volume, setVolume] = useState(0.7); // Default volume 70%
   const [showVolumeControl, setShowVolumeControl] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
-  const [showTranscript, setShowTranscript] = useState(true);
+  const [showRecorder, setShowRecorder] = useState(false);
+  const [isSavingVideo, setIsSavingVideo] = useState(false);
   const soundRef = useRef(null);
   const progressInterval = useRef(null);
   const retryCount = useRef(0);
@@ -33,14 +38,7 @@ const PodcastPlayer = ({ podcast, onNext, onPrevious }) => {
   const volumeBarRef = useRef(null);
   const isDraggingProgress = useRef(false);
   const isDraggingVolume = useRef(false);
-
-  // Find current segment based on currentTime
-  const getCurrentSegment = () => {
-    if (!podcast.segments) return null;
-    return podcast.segments.find(segment => 
-      currentTime >= segment.start && currentTime <= segment.end
-    );
-  };
+  const videoCanvasRef = useRef(null);
 
   const initializeAudio = async () => {
     if (soundRef.current) {
@@ -357,6 +355,136 @@ const PodcastPlayer = ({ podcast, onNext, onPrevious }) => {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
+  const handleSaveVideo = (blob) => {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    document.body.appendChild(a);
+    a.style = 'display: none';
+    a.href = url;
+    a.download = `${podcast.title.replace(/\s+/g, '-').toLowerCase()}-story.mp4`;
+    a.click();
+    URL.revokeObjectURL(url);
+    setShowRecorder(false);
+  };
+
+  const saveAsVideo = async () => {
+    if (!soundRef.current || isSavingVideo) return;
+    
+    try {
+      setIsSavingVideo(true);
+
+      // Tạo canvas cho video
+      const canvas = document.createElement('canvas');
+      canvas.width = 1080; // Width cho video dọc
+      canvas.height = 1920; // Height cho video dọc (9:16 ratio)
+      const ctx = canvas.getContext('2d');
+
+      // Setup MediaRecorder
+      const stream = canvas.captureStream(30);
+      const mediaRecorder = new MediaRecorder(stream, {
+        mimeType: 'video/webm;codecs=vp9',
+        videoBitsPerSecond: 8000000
+      });
+
+      const chunks = [];
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) chunks.push(e.data);
+      };
+
+      mediaRecorder.onstop = () => {
+        const blob = new Blob(chunks, { type: 'video/mp4' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        document.body.appendChild(a);
+        a.style = 'display: none';
+        a.href = url;
+        a.download = `${podcast.title.replace(/\s+/g, '-').toLowerCase()}-podcast.mp4`;
+        a.click();
+        URL.revokeObjectURL(url);
+        setIsSavingVideo(false);
+      };
+
+      // Setup audio
+      const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      const analyser = audioContext.createAnalyser();
+      analyser.fftSize = 256;
+      
+      const audio = new Audio(podcast.audio_url);
+      const source = audioContext.createMediaElementSource(audio);
+      source.connect(analyser);
+      analyser.connect(audioContext.destination);
+
+      // Load assets
+      const logo = new Image();
+      logo.src = '/logo.png';
+      await new Promise(resolve => { logo.onload = resolve; });
+
+      const drawFrame = () => {
+        // Background gradient
+        const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+        gradient.addColorStop(0, '#1a1a1a');
+        gradient.addColorStop(1, '#2a2a2a');
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Draw logo
+        const logoSize = canvas.width * 0.2;
+        ctx.drawImage(logo, canvas.width - logoSize - 20, 20, logoSize, logoSize);
+
+        // Draw podcast info
+        ctx.fillStyle = '#ffffff';
+        ctx.textAlign = 'center';
+        
+        // Title
+        ctx.font = 'bold 48px Arial';
+        ctx.fillText(podcast.title, canvas.width/2, canvas.height * 0.25);
+        
+        // Topic
+        ctx.font = '32px Arial';
+        ctx.fillStyle = 'rgba(255,255,255,0.8)';
+        ctx.fillText(podcast.topic, canvas.width/2, canvas.height * 0.3);
+
+        // Draw audio visualizer
+        const bufferLength = analyser.frequencyBinCount;
+        const dataArray = new Uint8Array(bufferLength);
+        analyser.getByteFrequencyData(dataArray);
+
+        const barWidth = (canvas.width * 0.8) / bufferLength;
+        const barSpacing = 2;
+        const maxBarHeight = canvas.height * 0.15;
+        const startX = canvas.width * 0.1;
+        const startY = canvas.height * 0.5;
+
+        ctx.fillStyle = '#4F46E5';
+        for (let i = 0; i < bufferLength; i++) {
+          const barHeight = (dataArray[i] / 255) * maxBarHeight;
+          const x = startX + i * (barWidth + barSpacing);
+          ctx.fillRect(x, startY - barHeight/2, barWidth, barHeight);
+        }
+
+        if (!mediaRecorder.state.match(/inactive/)) {
+          requestAnimationFrame(drawFrame);
+        }
+      };
+
+      // Start recording
+      mediaRecorder.start();
+      audio.play();
+      drawFrame();
+
+      // Stop when audio ends
+      audio.onended = () => {
+        mediaRecorder.stop();
+        audio.pause();
+        audio.currentTime = 0;
+      };
+
+    } catch (err) {
+      console.error('Lỗi khi tạo video:', err);
+      setIsSavingVideo(false);
+    }
+  };
+
   return (
     <div className="w-full max-w-4xl mx-auto bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
       <div className="space-y-4">
@@ -433,6 +561,30 @@ const PodcastPlayer = ({ podcast, onNext, onPrevious }) => {
           </button>
         </div>
 
+        {/* Additional controls */}
+        <div className="flex items-center justify-center space-x-4 mt-2">
+          <button
+            onClick={() => setShowRecorder(true)}
+            className="p-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-white rounded-full hover:bg-gray-100 dark:hover:bg-gray-700"
+            title="Share as Story"
+          >
+            <ShareIcon className="h-5 w-5" />
+          </button>
+
+          <button
+            onClick={saveAsVideo}
+            disabled={isSavingVideo}
+            className="p-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-white rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            title="Save as Video"
+          >
+            {isSavingVideo ? (
+              <div className="h-5 w-5 border-2 border-gray-600 dark:border-gray-400 border-t-transparent rounded-full animate-spin" />
+            ) : (
+              <ArrowDownTrayIcon className="h-5 w-5" />
+            )}
+          </button>
+        </div>
+
         {/* Volume control */}
         <div className="flex items-center justify-center space-x-2">
           <button 
@@ -488,44 +640,18 @@ const PodcastPlayer = ({ podcast, onNext, onPrevious }) => {
           </AnimatePresence>
         </div>
 
-        {/* Transcript toggle button */}
-        <div className="flex justify-center">
-          <button
-            onClick={() => setShowTranscript(!showTranscript)}
-            className="flex items-center space-x-2 px-4 py-2 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-white"
-          >
-            <DocumentTextIcon className="h-5 w-5" />
-            <span>{showTranscript ? 'Hide Transcript' : 'Show Transcript'}</span>
-          </button>
-        </div>
-
-        {/* Transcript display */}
+        {/* Story Recorder Modal */}
         <AnimatePresence>
-          {showTranscript && podcast.segments && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-              className="mt-4 space-y-2 max-h-60 overflow-y-auto"
-            >
-              {podcast.segments.map((segment, index) => (
-                <div
-                  key={index}
-                  className={`p-2 rounded ${
-                    currentTime >= segment.start && currentTime <= segment.end
-                      ? 'bg-blue-100 dark:bg-blue-900'
-                      : 'hover:bg-gray-100 dark:hover:bg-gray-700'
-                  }`}
-                >
-                  <p className="text-sm text-gray-800 dark:text-gray-200">
-                    {segment.text}
-                  </p>
-                  <span className="text-xs text-gray-500 dark:text-gray-400">
-                    {formatTime(segment.start)} - {formatTime(segment.end)}
-                  </span>
-                </div>
-              ))}
-            </motion.div>
+          {showRecorder && (
+            <ShareStoryModal
+              isVisible={showRecorder}
+              onClose={() => setShowRecorder(false)}
+              onSave={handleSaveVideo}
+              audioUrl={podcast.audio_url}
+              duration={soundRef.current?.duration() || 0}
+              podcastTitle={podcast.title}
+              podcastTopic={podcast.topic}
+            />
           )}
         </AnimatePresence>
       </div>

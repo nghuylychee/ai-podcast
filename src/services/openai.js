@@ -69,106 +69,111 @@ export const generatePodcastContent = async (topic) => {
 
     // Create system prompt based on detected language
     const systemPrompt = language === 'vi'
-      ? `Bạn là một người kể chuyện và giáo dục viên chuyên nghiệp. Nhiệm vụ của bạn là tạo nội dung podcast giáo dục hấp dẫn.
+      ? `Bạn là một chuyên gia kể chuyện với khả năng tạo ra những câu chuyện sống động và lôi cuốn. Bạn có tài năng đặc biệt trong việc:
+        - Xây dựng cốt truyện hấp dẫn
+        - Tạo hình ảnh sống động qua lời văn
+        - Sử dụng ngôn từ gợi cảm xúc
+        - Tạo những khoảnh khắc cao trào và bất ngờ
+        - Kết nối các ý tưởng một cách tự nhiên và logic
 
-         Yêu cầu về nội dung:
-         - Độ dài 2-3 phút (khoảng 300-450 từ)
-         - Giọng điệu tự nhiên, thân thiện như đang trò chuyện
-         - Sử dụng câu hỏi để tạo tò mò
-         - Thêm ví dụ thực tế và so sánh để dễ hiểu
-         - Tập trung vào một ý tưởng chính và phát triển sâu
-         - Kết thúc với thông điệp đáng nhớ
-         
-         Cấu trúc nội dung:
-         1. Hook (15-20s): Câu mở đầu gây tò mò hoặc fact thú vị
-         2. Giới thiệu (20-30s): Giới thiệu chủ đề và tại sao nó quan trọng
-         3. Nội dung chính (60-90s): Giải thích chi tiết với ví dụ cụ thể
-         4. Kết luận (15-20s): Tóm tắt và thông điệp chính
-         
-         Khi chia segments:
-         - Mỗi segment 2-3 câu liên quan đến nhau
-         - Độ dài mỗi segment 10-15 giây
-         - Đảm bảo thời gian segments liên tục và không chồng lấp
-         - Tổng thời gian các segments phải bằng duration`
-      : `You are a professional storyteller and educator. Your task is to create engaging educational podcast content.
+        Yêu cầu về nội dung:
+        - Độ dài: 3-5 phút (khoảng 1000-2000 từ)
+        - Bám sát chủ đề chính xuyên suốt câu chuyện
+        - Mô tả chi tiết, tạo hình ảnh rõ nét trong tâm trí người nghe
+        - Sử dụng nhiều phép so sánh và ẩn dụ để làm sinh động nội dung
+        - Tạo cảm xúc và sự đồng cảm với người nghe
+        
+        Cấu trúc nội dung:
+        1. Mở đầu (30-45s): 
+           - Tạo hook mạnh mẽ bằng một câu chuyện, sự kiện hoặc tình huống gây tò mò
+           - Đặt câu hỏi hoặc vấn đề thu hút sự chú ý
+        
+        2. Giới thiệu (45-60s):
+           - Kết nối hook với chủ đề chính
+           - Giải thích tại sao chủ đề này quan trọng và liên quan
+        
+        3. Nội dung chính (90-150s):
+           - Phát triển ý tưởng với các ví dụ cụ thể và chi tiết
+           - Tạo những khoảnh khắc cao trào và bất ngờ
+           - Sử dụng ngôn ngữ mô tả sinh động
+        
+        4. Kết luận (30-45s):
+           - Tổng kết các ý chính một cách sáng tạo
+           - Để lại thông điệp sâu sắc và đáng nhớ
+           - Tạo dư âm trong lòng người nghe`
+      : `You are a master storyteller with the ability to create vivid and engaging narratives. You excel at:
+        - Crafting compelling storylines
+        - Creating vivid imagery through words
+        - Using emotionally resonant language
+        - Building moments of suspense and revelation
+        - Connecting ideas naturally and logically
 
-         Content requirements:
-         - Length: 2-3 minutes (about 300-450 words)
-         - Natural, conversational tone
-         - Use questions to spark curiosity
-         - Include real examples and analogies
-         - Focus on one main idea and develop it deeply
-         - End with a memorable message
-         
-         Content structure:
-         1. Hook (15-20s): Curiosity-sparking opening or interesting fact
-         2. Introduction (20-30s): Introduce topic and why it matters
-         3. Main content (60-90s): Detailed explanation with specific examples
-         4. Conclusion (15-20s): Summary and key message
-         
-         When creating segments:
-         - Each segment should be 2-3 related sentences
-         - Length of each segment: 10-15 seconds
-         - Ensure segment times are continuous and non-overlapping
-         - Total segment time should match duration`;
+        Content requirements:
+        - Length: 3-5 minutes (about 1000-2000 words)
+        - Maintain strong focus on the main topic throughout
+        - Use detailed descriptions to paint pictures in listeners' minds
+        - Employ rich metaphors and analogies to bring content to life
+        - Create emotional connection with the audience
+        
+        Content structure:
+        1. Hook (30-45s):
+           - Create a powerful hook with a story, event, or intriguing situation
+           - Pose thought-provoking questions or scenarios
+        
+        2. Introduction (45-60s):
+           - Connect the hook to the main topic
+           - Explain why this topic matters and is relevant
+        
+        3. Main content (90-150s):
+           - Develop ideas with specific examples and details
+           - Create moments of surprise and revelation
+           - Use vivid descriptive language
+        
+        4. Conclusion (30-45s):
+           - Creatively summarize key points
+           - Leave a profound and memorable message
+           - Create lasting resonance with listeners`;
 
     const userPrompt = language === 'vi' 
-      ? `Tạo một bài podcast ngắn (2-3 phút) về chủ đề: ${topic}
+      ? `Tạo một bài podcast ngắn (3-5 phút) về chủ đề: ${topic}
 
          Format kết quả như sau:
          {
            "title": "Tiêu đề thu hút",
            "description": "Mô tả ngắn gọn, hấp dẫn",
            "script": "Nội dung kể chuyện hoàn chỉnh",
-           "segments": [
-             {
-               "text": "Đoạn văn bản (2-3 câu)",
-               "start": "Thời gian bắt đầu (giây)",
-               "end": "Thời gian kết thúc (giây)"
-             }
-           ],
            "duration": "Thời lượng ước tính (giây)",
            "hashtags": ["Các hashtag liên quan"]
          }
 
          LƯU Ý:
-         - Script là nội dung hoàn chỉnh để đọc
-         - Chia segments thành các đoạn 2-3 câu từ script
-         - Mỗi đoạn khoảng 10-15 giây
-         - Thời gian start/end phải liên tục và không chồng lấp
          - Nội dung phải tự nhiên như đang kể chuyện
          - Mở đầu bằng một câu hook thu hút sự tò mò
          - Sử dụng ngôn ngữ dễ hiểu nhưng không đơn giản
          - Thêm các ví dụ và so sánh để dễ hiểu
          - Kết thúc với một thông điệp đáng nhớ`
-      : `Create a short podcast (2-3 minutes) about: ${topic}
+      : `Create a short podcast (3-5 minutes) about: ${topic}
 
          Format the response as:
          {
            "title": "Engaging title",
            "description": "Brief, captivating description",
            "script": "Complete storytelling script",
-           "segments": [
-             {
-               "text": "Text segment (2-3 sentences)",
-               "start": "Start time in seconds",
-               "end": "End time in seconds"
-             }
-           ],
            "duration": "Estimated duration in seconds",
            "hashtags": ["Relevant hashtags"]
          }
 
          NOTE:
-         - Script is the complete content for TTS
-         - Break script into 2-3 sentence segments
-         - Each segment should be about 10-15 seconds
-         - Start/end times must be continuous and non-overlapping
          - Content should flow naturally like storytelling
          - Start with a hook that sparks curiosity
          - Use accessible language without oversimplifying
          - Include examples and analogies for clarity
          - End with a memorable message`;
+
+    // For testing without API, return mock data if available
+    if (process.env.NODE_ENV === 'development' && MOCK_RESPONSES[topic.toLowerCase()]) {
+      return MOCK_RESPONSES[topic.toLowerCase()];
+    }
 
     const completion = await openai.chat.completions.create({
       model: "gpt-3.5-turbo",
@@ -196,13 +201,12 @@ export const generatePodcastContent = async (topic) => {
       title: content.title,
       description: content.description,
       scriptLength: content.script?.length || 0,
-      segmentsCount: content.segments?.length || 0,
       duration: content.duration,
       hashtags: content.hashtags
     });
 
     // Validate content structure
-    if (!content.script || !content.segments || content.segments.length === 0) {
+    if (!content.script) {
       console.error('Invalid content structure:', content);
       throw new Error('Generated content is missing required fields');
     }
@@ -213,7 +217,6 @@ export const generatePodcastContent = async (topic) => {
       title: content.title,
       topic: topic,
       script: content.script,
-      segments: content.segments,
       duration: Math.ceil(parseInt(content.duration) / 60), // Convert seconds to minutes
       hashtags: content.hashtags
     };
