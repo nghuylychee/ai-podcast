@@ -9,9 +9,9 @@ const Layout = ({ children }) => {
       </div>
 
       {/* Main Container */}
-      <div className="h-full flex">
+      <div className="h-full">
         {/* Sidebar */}
-        <aside className="w-64 h-full bg-black/20 backdrop-blur-sm border-r border-white/10">
+        <aside className="fixed left-0 top-0 h-full w-64 bg-black/20 backdrop-blur-sm border-r border-white/10">
           {/* Logo */}
           <div className="h-16 flex items-center px-6 border-b border-white/10">
             <h1 className="text-2xl font-bold bg-gradient-to-r from-purple-500 to-pink-500 bg-clip-text text-transparent">
@@ -59,7 +59,7 @@ const Layout = ({ children }) => {
         </aside>
 
         {/* Main Content */}
-        <main className="flex-1">
+        <main className="h-full ml-64 mr-16">
           <div className="h-full p-8">
             {children}
           </div>
