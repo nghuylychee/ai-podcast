@@ -13,12 +13,13 @@ import {
   PlusIcon,
   VideoCameraIcon,
   ShareIcon,
-  ArrowDownTrayIcon
+  ArrowDownTrayIcon,
+  HeartIcon
 } from '@heroicons/react/24/solid';
 import StoryRecorder from './StoryRecorder';
 import ShareStoryModal from './ShareStoryModal';
 
-const PodcastPlayer = ({ podcast, onNext, onPrevious }) => {
+const PodcastPlayer = ({ podcast, onNext, onPrevious, onAddToMyPodcasts }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
@@ -29,6 +30,7 @@ const PodcastPlayer = ({ podcast, onNext, onPrevious }) => {
   const [currentTime, setCurrentTime] = useState(0);
   const [showRecorder, setShowRecorder] = useState(false);
   const [isSavingVideo, setIsSavingVideo] = useState(false);
+  const [isAddedToMyPodcasts, setIsAddedToMyPodcasts] = useState(false);
   const soundRef = useRef(null);
   const progressInterval = useRef(null);
   const retryCount = useRef(0);
@@ -485,175 +487,138 @@ const PodcastPlayer = ({ podcast, onNext, onPrevious }) => {
     }
   };
 
+  const handleAddToMyPodcasts = () => {
+    setIsAddedToMyPodcasts(true);
+    onAddToMyPodcasts(podcast);
+  };
+
   return (
-    <div className="w-full max-w-4xl mx-auto bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
-      <div className="space-y-4">
-        {/* Title and description */}
-        <div className="text-center">
-          <h2 className="text-2xl font-bold text-gray-800 dark:text-white">{podcast.title}</h2>
-          <p className="text-gray-600 dark:text-gray-300">{podcast.topic}</p>
+    <div className="w-full max-w-4xl mx-auto">
+      <div className="relative overflow-hidden rounded-2xl bg-white/5 backdrop-blur-xl border border-white/10 shadow-2xl p-8">
+        {/* Decorative Elements */}
+        <div className="absolute inset-0 pointer-events-none">
+          <div className="absolute top-0 left-0 w-1/2 h-1/2 bg-purple-500/10 rounded-full blur-3xl transform -translate-x-1/2 -translate-y-1/2"></div>
+          <div className="absolute bottom-0 right-0 w-1/2 h-1/2 bg-pink-500/10 rounded-full blur-3xl transform translate-x-1/2 translate-y-1/2"></div>
         </div>
 
-        {/* Error message */}
-        {error && (
-          <div className="text-red-500 text-center p-4">
-            {error}
-            <button 
-              onClick={retryLoading}
-              className="ml-2 text-blue-500 hover:text-blue-600"
-            >
-              Retry
-            </button>
+        {/* Content */}
+        <div className="relative space-y-6">
+          {/* Title and description */}
+          <div className="text-center">
+            <h2 className="text-3xl font-bold bg-gradient-to-r from-purple-500 to-pink-500 bg-clip-text text-transparent">
+              {podcast.title}
+            </h2>
+            <p className="text-lg text-gray-300 mt-2">{podcast.topic}</p>
           </div>
-        )}
 
-        {/* Progress bar */}
-        <div 
-          ref={progressBarRef}
-          className="relative h-2 bg-gray-200 dark:bg-gray-700 rounded cursor-pointer"
-          onClick={handleProgressClick}
-          onMouseDown={(e) => handleProgressDrag(e)}
-        >
-          <div 
-            className="absolute h-full bg-blue-500 rounded"
-            style={{ width: `${progress}%` }}
-          />
-        </div>
+          {/* Error message */}
+          {error && (
+            <div className="text-red-500 text-center p-4 bg-red-500/10 rounded-lg border border-red-500/20">
+              {error}
+              <button 
+                onClick={retryLoading}
+                className="ml-2 text-purple-400 hover:text-purple-300"
+              >
+                Retry
+              </button>
+            </div>
+          )}
 
-        {/* Time display */}
-        <div className="flex justify-between text-sm text-gray-600 dark:text-gray-400">
-          <span>{formatTime(currentTime)}</span>
-          <span>{formatTime(soundRef.current?.duration() || 0)}</span>
-        </div>
+          {/* Progress bar */}
+          <div className="space-y-2">
+            <div 
+              className="relative h-2 bg-white/5 rounded-full cursor-pointer overflow-hidden"
+              onClick={handleProgressClick}
+            >
+              <div 
+                className="absolute h-full bg-gradient-to-r from-purple-500 to-pink-500 rounded-full"
+                style={{ width: `${progress}%` }}
+              />
+            </div>
 
-        {/* Controls */}
-        <div className="flex items-center justify-center space-x-6">
-          <button 
-            onClick={onPrevious}
-            className="p-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-white"
-          >
-            <BackwardIcon className="h-8 w-8" />
-          </button>
+            {/* Time display */}
+            <div className="flex justify-between text-sm text-gray-400">
+              <span>{formatTime(currentTime)}</span>
+              <span>{formatTime(soundRef.current?.duration() || 0)}</span>
+            </div>
+          </div>
 
-          <button 
-            onClick={togglePlayPause}
-            disabled={isLoading}
-            className={`p-3 rounded-full ${
-              isLoading 
-                ? 'bg-gray-300 dark:bg-gray-700 cursor-wait' 
-                : 'bg-blue-500 hover:bg-blue-600'
-            }`}
-          >
-            {isLoading ? (
-              <div className="h-8 w-8 animate-spin rounded-full border-4 border-gray-400 dark:border-gray-600 border-t-transparent" />
-            ) : isPlaying ? (
-              <PauseIcon className="h-8 w-8 text-white" />
-            ) : (
-              <PlayIcon className="h-8 w-8 text-white" />
-            )}
-          </button>
+          {/* Controls */}
+          <div className="flex items-center justify-between">
+            <button 
+              onClick={toggleMute}
+              className="p-2 text-gray-400 hover:text-white transition-colors"
+            >
+              {isMuted ? (
+                <SpeakerXMarkIcon className="h-6 w-6" />
+              ) : (
+                <SpeakerWaveIcon className="h-6 w-6" />
+              )}
+            </button>
 
-          <button 
-            onClick={onNext}
-            className="p-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-white"
-          >
-            <ForwardIcon className="h-8 w-8" />
-          </button>
-        </div>
+            <button 
+              onClick={togglePlayPause}
+              disabled={isLoading}
+              className={`p-4 rounded-full ${
+                isLoading 
+                  ? 'bg-white/10 cursor-wait' 
+                  : 'bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600'
+              } transition-all duration-200`}
+            >
+              {isLoading ? (
+                <div className="h-8 w-8 animate-spin rounded-full border-4 border-white/20 border-t-white" />
+              ) : isPlaying ? (
+                <PauseIcon className="h-8 w-8 text-white" />
+              ) : (
+                <PlayIcon className="h-8 w-8 text-white" />
+              )}
+            </button>
 
-        {/* Additional controls */}
-        <div className="flex items-center justify-center space-x-4 mt-2">
-          <button
-            onClick={() => setShowRecorder(true)}
-            className="p-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-white rounded-full hover:bg-gray-100 dark:hover:bg-gray-700"
-            title="Share as Story"
-          >
-            <ShareIcon className="h-5 w-5" />
-          </button>
+            <div className="flex items-center gap-4">
+              <button
+                onClick={handleAddToMyPodcasts}
+                disabled={isAddedToMyPodcasts}
+                className={`p-2 rounded-full transition-colors ${
+                  isAddedToMyPodcasts 
+                    ? 'text-pink-500' 
+                    : 'text-gray-400 hover:text-pink-500'
+                }`}
+                title={isAddedToMyPodcasts ? 'Added to My Podcasts' : 'Add to My Podcasts'}
+              >
+                <HeartIcon className="h-6 w-6" />
+              </button>
+              
+              <button
+                className="p-2 text-gray-400 hover:text-white transition-colors"
+                title="Share Podcast"
+              >
+                <ShareIcon className="h-6 w-6" />
+              </button>
+            </div>
+          </div>
 
-          <button
-            onClick={saveAsVideo}
-            disabled={isSavingVideo}
-            className="p-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-white rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
-            title="Save as Video"
-          >
-            {isSavingVideo ? (
-              <div className="h-5 w-5 border-2 border-gray-600 dark:border-gray-400 border-t-transparent rounded-full animate-spin" />
-            ) : (
-              <ArrowDownTrayIcon className="h-5 w-5" />
-            )}
-          </button>
-        </div>
-
-        {/* Volume control */}
-        <div className="flex items-center justify-center space-x-2">
-          <button 
-            onClick={toggleMute}
-            onMouseEnter={() => setShowVolumeControl(true)}
-            className="p-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-white"
-          >
-            {isMuted ? (
-              <SpeakerXMarkIcon className="h-6 w-6" />
-            ) : volume > 0.5 ? (
-              <VolumeHighIcon className="h-6 w-6" />
-            ) : (
-              <SpeakerWaveIcon className="h-6 w-6" />
-            )}
-          </button>
-
+          {/* Volume slider (only show when hovering speaker icon) */}
           <AnimatePresence>
             {showVolumeControl && (
               <motion.div 
-                initial={{ opacity: 0, width: 0 }}
-                animate={{ opacity: 1, width: 'auto' }}
-                exit={{ opacity: 0, width: 0 }}
-                className="flex items-center space-x-2"
-                onMouseLeave={() => setShowVolumeControl(false)}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 10 }}
+                className="absolute bottom-full left-0 mb-2 p-2 bg-white/10 backdrop-blur-md rounded-lg border border-white/10"
               >
-                <button 
-                  onClick={() => handleVolumeChange(-0.1)}
-                  className="p-1 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-white"
-                >
-                  <MinusIcon className="h-4 w-4" />
-                </button>
-
                 <div 
-                  ref={volumeBarRef}
-                  className="relative w-24 h-2 bg-gray-200 dark:bg-gray-700 rounded cursor-pointer"
-                  onClick={(e) => handleVolumeDrag(e)}
-                  onMouseDown={(e) => handleVolumeDrag(e)}
+                  className="relative w-24 h-2 bg-white/10 rounded-full cursor-pointer"
+                  onClick={handleVolumeChange}
                 >
                   <div 
-                    className="absolute h-full bg-blue-500 rounded"
+                    className="absolute h-full bg-gradient-to-r from-purple-500 to-pink-500 rounded-full"
                     style={{ width: `${volume * 100}%` }}
                   />
                 </div>
-
-                <button 
-                  onClick={() => handleVolumeChange(0.1)}
-                  className="p-1 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-white"
-                >
-                  <PlusIcon className="h-4 w-4" />
-                </button>
               </motion.div>
             )}
           </AnimatePresence>
         </div>
-
-        {/* Story Recorder Modal */}
-        <AnimatePresence>
-          {showRecorder && (
-            <ShareStoryModal
-              isVisible={showRecorder}
-              onClose={() => setShowRecorder(false)}
-              onSave={handleSaveVideo}
-              audioUrl={podcast.audio_url}
-              duration={soundRef.current?.duration() || 0}
-              podcastTitle={podcast.title}
-              podcastTopic={podcast.topic}
-            />
-          )}
-        </AnimatePresence>
       </div>
     </div>
   );

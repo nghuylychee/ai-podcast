@@ -29,7 +29,7 @@ export const generateReadingPrompt = async (script) => {
         },
         {
           role: "user",
-          content: script
+          content: script.toString()
         }
       ],
       temperature: 0.7,

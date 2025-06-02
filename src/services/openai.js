@@ -69,105 +69,115 @@ export const generatePodcastContent = async (topic) => {
 
     // Create system prompt based on detected language
     const systemPrompt = language === 'vi'
-      ? `Bạn là một chuyên gia kể chuyện với khả năng tạo ra những câu chuyện sống động và lôi cuốn. Bạn có tài năng đặc biệt trong việc:
-        - Xây dựng cốt truyện hấp dẫn
-        - Tạo hình ảnh sống động qua lời văn
-        - Sử dụng ngôn từ gợi cảm xúc
-        - Tạo những khoảnh khắc cao trào và bất ngờ
-        - Kết nối các ý tưởng một cách tự nhiên và logic
+      ? `Bạn là một chuyên gia kể chuyện và nhà giáo dục với khả năng tạo ra những nội dung sâu sắc và hấp dẫn. Bạn có tài năng đặc biệt trong việc:
+        - Xây dựng câu chuyện có chiều sâu và logic
+        - Kết nối các ý tưởng một cách tự nhiên và mạch lạc
+        - Sử dụng ngôn từ phong phú và sinh động
+        - Tạo những ví dụ thực tế và dễ hiểu
+        - Dẫn dắt người nghe qua một hành trình kiến thức thú vị
 
         Yêu cầu về nội dung:
-        - Độ dài: 3-5 phút (khoảng 1000-2000 từ)
-        - Bám sát chủ đề chính xuyên suốt câu chuyện
-        - Mô tả chi tiết, tạo hình ảnh rõ nét trong tâm trí người nghe
-        - Sử dụng nhiều phép so sánh và ẩn dụ để làm sinh động nội dung
-        - Tạo cảm xúc và sự đồng cảm với người nghe
+        - Độ dài: 5000-10000 từ (khoảng 15-20 phút)
+        - Cấu trúc rõ ràng với các phần được phân chia logic
+        - Mỗi phần có mục tiêu và thông điệp riêng
+        - Sử dụng nhiều ví dụ thực tế và case studies
+        - Kết nối các phần với nhau một cách tự nhiên
         
         Cấu trúc nội dung:
-        1. Mở đầu (30-45s): 
-           - Tạo hook mạnh mẽ bằng một câu chuyện, sự kiện hoặc tình huống gây tò mò
-           - Đặt câu hỏi hoặc vấn đề thu hút sự chú ý
+        1. Mở đầu (2-3 phút):
+           - Hook mạnh mẽ với một câu chuyện hoặc sự kiện thú vị
+           - Giới thiệu tổng quan về chủ đề và tầm quan trọng
+           - Đặt ra các câu hỏi hoặc vấn đề sẽ được giải quyết
         
-        2. Giới thiệu (45-60s):
-           - Kết nối hook với chủ đề chính
-           - Giải thích tại sao chủ đề này quan trọng và liên quan
+        2. Phần 1: Nền tảng (4-5 phút):
+           - Giải thích các khái niệm cơ bản
+           - Cung cấp bối cảnh và thông tin nền
+           - Đưa ra các ví dụ minh họa đơn giản
         
-        3. Nội dung chính (90-150s):
-           - Phát triển ý tưởng với các ví dụ cụ thể và chi tiết
-           - Tạo những khoảnh khắc cao trào và bất ngờ
-           - Sử dụng ngôn ngữ mô tả sinh động
+        3. Phần 2: Phân tích sâu (5-6 phút):
+           - Đi sâu vào các khía cạnh quan trọng
+           - Phân tích các case studies cụ thể
+           - Thảo luận về các quan điểm khác nhau
         
-        4. Kết luận (30-45s):
-           - Tổng kết các ý chính một cách sáng tạo
-           - Để lại thông điệp sâu sắc và đáng nhớ
-           - Tạo dư âm trong lòng người nghe`
-      : `You are a master storyteller with the ability to create vivid and engaging narratives. You excel at:
-        - Crafting compelling storylines
-        - Creating vivid imagery through words
-        - Using emotionally resonant language
-        - Building moments of suspense and revelation
-        - Connecting ideas naturally and logically
+        4. Phần 3: Ứng dụng thực tế (4-5 phút):
+           - Hướng dẫn cách áp dụng kiến thức
+           - Chia sẻ các tips và best practices
+           - Đưa ra các bài học kinh nghiệm
+        
+        5. Kết luận (2-3 phút):
+           - Tổng kết các điểm chính
+           - Để lại thông điệp sâu sắc
+           - Mở ra hướng phát triển tiếp theo`
+      : `You are a master storyteller and educator with the ability to create deep and engaging content. You excel at:
+        - Building stories with depth and logic
+        - Connecting ideas naturally and coherently
+        - Using rich and vivid language
+        - Creating practical and relatable examples
+        - Guiding listeners through an interesting knowledge journey
 
         Content requirements:
-        - Length: 3-5 minutes (about 1000-2000 words)
-        - Maintain strong focus on the main topic throughout
-        - Use detailed descriptions to paint pictures in listeners' minds
-        - Employ rich metaphors and analogies to bring content to life
-        - Create emotional connection with the audience
+        - Length: 5000-10000 words (about 15-20 minutes)
+        - Clear structure with logically divided sections
+        - Each section has its own purpose and message
+        - Use of real-world examples and case studies
+        - Natural connections between sections
         
         Content structure:
-        1. Hook (30-45s):
-           - Create a powerful hook with a story, event, or intriguing situation
-           - Pose thought-provoking questions or scenarios
+        1. Introduction (2-3 minutes):
+           - Strong hook with an interesting story or event
+           - Overview of the topic and its importance
+           - Questions or issues to be addressed
         
-        2. Introduction (45-60s):
-           - Connect the hook to the main topic
-           - Explain why this topic matters and is relevant
+        2. Part 1: Foundation (4-5 minutes):
+           - Explain basic concepts
+           - Provide context and background information
+           - Give simple illustrative examples
         
-        3. Main content (90-150s):
-           - Develop ideas with specific examples and details
-           - Create moments of surprise and revelation
-           - Use vivid descriptive language
+        3. Part 2: Deep Analysis (5-6 minutes):
+           - Dive into important aspects
+           - Analyze specific case studies
+           - Discuss different perspectives
         
-        4. Conclusion (30-45s):
-           - Creatively summarize key points
-           - Leave a profound and memorable message
-           - Create lasting resonance with listeners`;
+        4. Part 3: Practical Application (4-5 minutes):
+           - Guide on how to apply the knowledge
+           - Share tips and best practices
+           - Provide lessons learned
+        
+        5. Conclusion (2-3 minutes):
+           - Summarize key points
+           - Leave a profound message
+           - Open up future developments`;
 
     const userPrompt = language === 'vi' 
-      ? `Tạo một bài podcast ngắn (3-5 phút) về chủ đề: ${topic}
+      ? `Tạo một bài podcast sâu sắc (15-20 phút) về chủ đề: ${topic}
 
          Format kết quả như sau:
          {
-           "title": "Tiêu đề thu hút",
-           "description": "Mô tả ngắn gọn, hấp dẫn",
-           "script": "Nội dung kể chuyện hoàn chỉnh",
-           "duration": "Thời lượng ước tính (giây)",
-           "hashtags": ["Các hashtag liên quan"]
+           "title": "Tiêu đề hấp dẫn và phản ánh nội dung",
+           "description": "Mô tả chi tiết về nội dung podcast",
+           "script": "Nội dung đầy đủ với cấu trúc rõ ràng"
          }
 
          LƯU Ý:
-         - Nội dung phải tự nhiên như đang kể chuyện
-         - Mở đầu bằng một câu hook thu hút sự tò mò
-         - Sử dụng ngôn ngữ dễ hiểu nhưng không đơn giản
-         - Thêm các ví dụ và so sánh để dễ hiểu
-         - Kết thúc với một thông điệp đáng nhớ`
-      : `Create a short podcast (3-5 minutes) about: ${topic}
+         - Mỗi phần cần có mục tiêu rõ ràng
+         - Sử dụng nhiều ví dụ thực tế
+         - Kết nối các phần một cách tự nhiên
+         - Đảm bảo độ dài và chiều sâu của nội dung
+         - Kết thúc với thông điệp đáng nhớ`
+      : `Create a deep podcast (15-20 minutes) about: ${topic}
 
          Format the response as:
          {
-           "title": "Engaging title",
-           "description": "Brief, captivating description",
-           "script": "Complete storytelling script",
-           "duration": "Estimated duration in seconds",
-           "hashtags": ["Relevant hashtags"]
+           "title": "Engaging title that reflects content",
+           "description": "Detailed description of podcast content",
+           "script": "Complete content with clear structure"
          }
 
          NOTE:
-         - Content should flow naturally like storytelling
-         - Start with a hook that sparks curiosity
-         - Use accessible language without oversimplifying
-         - Include examples and analogies for clarity
+         - Each section should have a clear purpose
+         - Use plenty of real-world examples
+         - Connect sections naturally
+         - Ensure content length and depth
          - End with a memorable message`;
 
     // For testing without API, return mock data if available
@@ -194,7 +204,27 @@ export const generatePodcastContent = async (topic) => {
     // Log the raw response
     console.log('Raw OpenAI response:', completion.choices[0].message.content);
 
-    const content = JSON.parse(completion.choices[0].message.content);
+    // Clean the JSON string before parsing
+    const cleanJsonString = completion.choices[0].message.content
+      .replace(/[\u0000-\u001F\u007F-\u009F]/g, '') // Remove control characters
+      .replace(/\n/g, ' ') // Replace newlines with spaces
+      .replace(/\r/g, '') // Remove carriage returns
+      .replace(/\t/g, ' ') // Replace tabs with spaces
+      .replace(/\s+/g, ' ') // Replace multiple spaces with single space
+      .replace(/([{,]\s*)([a-zA-Z0-9_]+)(\s*:)/g, '$1"$2"$3') // Add quotes to property names
+      .replace(/'/g, '"') // Replace single quotes with double quotes
+      .trim();
+
+    console.log('Cleaned JSON string:', cleanJsonString);
+
+    let content;
+    try {
+      content = JSON.parse(cleanJsonString);
+    } catch (parseError) {
+      console.error('JSON Parse Error:', parseError);
+      console.error('Problematic JSON string:', cleanJsonString);
+      throw new Error('Failed to parse JSON response from OpenAI');
+    }
     
     // Log the parsed content
     console.log('Parsed content:', {
@@ -216,9 +246,7 @@ export const generatePodcastContent = async (topic) => {
       id: Date.now().toString(),
       title: content.title,
       topic: topic,
-      script: content.script,
-      duration: Math.ceil(parseInt(content.duration) / 60), // Convert seconds to minutes
-      hashtags: content.hashtags
+      script: content.script
     };
 
     // Log the final transformed content

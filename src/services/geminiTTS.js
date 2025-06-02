@@ -89,11 +89,19 @@ export async function textToSpeech(text) {
   try {
     console.log('Bắt đầu chuyển đổi text thành speech...');
     
+    // Validate text parameter
+    if (!text) {
+      throw new Error('Text parameter is required');
+    }
+    
+    // Convert text to string if it's an object
+    const scriptText = typeof text === 'object' ? text.script || JSON.stringify(text) : text.toString();
+    
     // Tạo prompt hướng dẫn đọc
-    const readingPrompt = await generateReadingPrompt(text);
+    const readingPrompt = await generateReadingPrompt(scriptText);
     console.log('Đã tạo prompt hướng dẫn đọc:', readingPrompt);
 
-    const language = detectLanguage(text);
+    const language = detectLanguage(scriptText);
     const voice = getVoiceForLanguage(language);
     console.log('Đã chọn giọng đọc:', voice);
 

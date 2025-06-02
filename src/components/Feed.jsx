@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import PodcastPlayer from './PodcastPlayer';
 
-const Feed = ({ podcasts }) => {
+const Feed = ({ podcasts, onAddToMyPodcasts }) => {
   const [[currentIndex, direction], setCurrentIndex] = useState([0, 0]);
 
   const slideVariants = {
@@ -41,7 +41,14 @@ const Feed = ({ podcasts }) => {
     });
   };
 
-  if (!podcasts.length) return null;
+  if (!podcasts.length) return (
+    <div className="flex items-center justify-center h-full">
+      <div className="text-center text-gray-400">
+        <p className="text-xl">No podcasts yet</p>
+        <p className="text-sm mt-2">Generate a new podcast or add some to your collection</p>
+      </div>
+    </div>
+  );
 
   const currentPodcast = podcasts[currentIndex];
 
@@ -75,8 +82,7 @@ const Feed = ({ podcasts }) => {
         >
           <PodcastPlayer
             podcast={currentPodcast}
-            onNext={() => paginate(1)}
-            onPrevious={() => paginate(-1)}
+            onAddToMyPodcasts={onAddToMyPodcasts}
           />
         </motion.div>
       </AnimatePresence>

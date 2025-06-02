@@ -1,17 +1,22 @@
+import { useState } from 'react';
 import AuthButton from './AuthButton';
+import Feed from './Feed';
+import { HeartIcon, HomeIcon, BookmarkIcon, Cog6ToothIcon } from '@heroicons/react/24/outline';
 
-const Layout = ({ children }) => {
+const Layout = ({ children, myPodcasts = [] }) => {
+  const [showMyPodcasts, setShowMyPodcasts] = useState(false);
+
   return (
-    <div className="h-screen overflow-hidden bg-gradient-to-br from-gray-900/50 to-black/50 backdrop-blur-3xl text-white">
+    <div className="fixed inset-0 w-screen h-screen bg-gradient-to-br from-gray-900/50 to-black/50 backdrop-blur-3xl text-white">
       {/* Auth Button - Fixed top right */}
       <div className="fixed top-4 right-4 z-50">
         <AuthButton />
       </div>
 
       {/* Main Container */}
-      <div className="h-full">
+      <div className="flex h-full">
         {/* Sidebar */}
-        <aside className="fixed left-0 top-0 h-full w-64 bg-black/20 backdrop-blur-sm border-r border-white/10">
+        <aside className="fixed left-0 top-0 h-full w-64 bg-black/20 backdrop-blur-sm border-r border-white/10 z-40">
           {/* Logo */}
           <div className="h-16 flex items-center px-6 border-b border-white/10">
             <h1 className="text-2xl font-bold bg-gradient-to-r from-purple-500 to-pink-500 bg-clip-text text-transparent">
@@ -21,30 +26,45 @@ const Layout = ({ children }) => {
 
           {/* Navigation */}
           <nav className="p-4 space-y-2">
-            <a href="#" className="flex items-center space-x-2 px-4 py-2 rounded-lg bg-white/10 text-white">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-              </svg>
+            <button 
+              onClick={() => setShowMyPodcasts(false)}
+              className={`flex items-center space-x-2 px-4 py-2 rounded-lg w-full text-left transition-colors ${
+                !showMyPodcasts 
+                  ? 'bg-white/10 text-white' 
+                  : 'text-gray-400 hover:bg-white/5'
+              }`}
+            >
+              <HomeIcon className="w-5 h-5" />
               <span>Home</span>
-            </a>
-            <a href="#" className="flex items-center space-x-2 px-4 py-2 rounded-lg text-gray-400 hover:bg-white/5 transition-colors">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
-              </svg>
-              <span>My Podcasts</span>
-            </a>
-            <a href="#" className="flex items-center space-x-2 px-4 py-2 rounded-lg text-gray-400 hover:bg-white/5 transition-colors">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
-              </svg>
+            </button>
+            <button 
+              onClick={() => setShowMyPodcasts(true)}
+              className={`flex items-center space-x-2 px-4 py-2 rounded-lg w-full text-left transition-colors ${
+                showMyPodcasts 
+                  ? 'bg-white/10 text-white' 
+                  : 'text-gray-400 hover:bg-white/5'
+              }`}
+            >
+              <div className="flex items-center justify-between w-full">
+                <div className="flex items-center space-x-2">
+                  <HeartIcon className="w-5 h-5" />
+                  <span>My Podcasts</span>
+                </div>
+                {myPodcasts.length > 0 && (
+                  <span className="px-2 py-0.5 text-xs font-medium bg-purple-500/20 text-purple-300 rounded-full">
+                    {myPodcasts.length}
+                  </span>
+                )}
+              </div>
+            </button>
+            <button className="flex items-center space-x-2 px-4 py-2 rounded-lg w-full text-left text-gray-400 hover:bg-white/5 transition-colors">
+              <BookmarkIcon className="w-5 h-5" />
               <span>Saved</span>
-            </a>
-            <a href="#" className="flex items-center space-x-2 px-4 py-2 rounded-lg text-gray-400 hover:bg-white/5 transition-colors">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
-              </svg>
+            </button>
+            <button className="flex items-center space-x-2 px-4 py-2 rounded-lg w-full text-left text-gray-400 hover:bg-white/5 transition-colors">
+              <Cog6ToothIcon className="w-5 h-5" />
               <span>Settings</span>
-            </a>
+            </button>
           </nav>
 
           <div className="absolute bottom-4 left-4 right-4">
@@ -59,9 +79,28 @@ const Layout = ({ children }) => {
         </aside>
 
         {/* Main Content */}
-        <main className="h-full ml-64 mr-16">
-          <div className="h-full p-8">
-            {children}
+        <main className="flex-1 ml-64">
+          <div className="h-full p-8 pr-20">
+            {showMyPodcasts ? (
+              <div className="min-h-screen">
+                <h2 className="text-3xl font-bold mb-8 bg-gradient-to-r from-purple-500 to-pink-500 bg-clip-text text-transparent">
+                  My Podcasts
+                </h2>
+                {myPodcasts.length > 0 ? (
+                  <Feed podcasts={myPodcasts} />
+                ) : (
+                  <div className="flex flex-col items-center justify-center h-[400px] bg-white/5 backdrop-blur-sm rounded-2xl border border-white/10">
+                    <HeartIcon className="w-16 h-16 text-gray-500 mb-4" />
+                    <h3 className="text-xl font-medium text-gray-300 mb-2">No podcasts yet</h3>
+                    <p className="text-gray-400 text-center max-w-md">
+                      Generate a podcast and click the heart icon to add it to your collection
+                    </p>
+                  </div>
+                )}
+              </div>
+            ) : (
+              children
+            )}
           </div>
         </main>
       </div>
