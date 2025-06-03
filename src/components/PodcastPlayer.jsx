@@ -25,12 +25,13 @@ const PodcastPlayer = ({ podcast, onNext, onPrevious, onAddToMyPodcasts }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [isMuted, setIsMuted] = useState(false);
-  const [volume, setVolume] = useState(0.7); // Default volume 70%
+  const [volume, setVolume] = useState(0.7);
   const [showVolumeControl, setShowVolumeControl] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [showRecorder, setShowRecorder] = useState(false);
   const [isSavingVideo, setIsSavingVideo] = useState(false);
   const [isAddedToMyPodcasts, setIsAddedToMyPodcasts] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false);
   const soundRef = useRef(null);
   const progressInterval = useRef(null);
   const retryCount = useRef(0);
@@ -41,6 +42,7 @@ const PodcastPlayer = ({ podcast, onNext, onPrevious, onAddToMyPodcasts }) => {
   const isDraggingProgress = useRef(false);
   const isDraggingVolume = useRef(false);
   const videoCanvasRef = useRef(null);
+  const volumeTimeoutRef = useRef(null);
 
   const initializeAudio = async () => {
     if (soundRef.current) {
@@ -238,11 +240,28 @@ const PodcastPlayer = ({ podcast, onNext, onPrevious, onAddToMyPodcasts }) => {
     }
   };
 
-  const handleVolumeChange = (delta) => {
+  const handleVolumeMouseEnter = () => {
+    if (volumeTimeoutRef.current) {
+      clearTimeout(volumeTimeoutRef.current);
+    }
+    setShowVolumeControl(true);
+  };
+
+  const handleVolumeMouseLeave = () => {
+    volumeTimeoutRef.current = setTimeout(() => {
+      setShowVolumeControl(false);
+    }, 500);
+  };
+
+  const handleVolumeChange = (e) => {
     if (!soundRef.current || isLoading) return;
     
     try {
-      const newVolume = Math.max(0, Math.min(1, volume + delta));
+      const volumeBar = volumeBarRef.current;
+      const rect = volumeBar.getBoundingClientRect();
+      const x = Math.max(0, Math.min(e.clientX - rect.left, rect.width));
+      const newVolume = x / rect.width;
+      
       setVolume(newVolume);
       soundRef.current.volume(newVolume);
     } catch (err) {
@@ -488,8 +507,14 @@ const PodcastPlayer = ({ podcast, onNext, onPrevious, onAddToMyPodcasts }) => {
   };
 
   const handleAddToMyPodcasts = () => {
-    setIsAddedToMyPodcasts(true);
-    onAddToMyPodcasts(podcast);
+    if (!isAddedToMyPodcasts) {
+      setIsAddedToMyPodcasts(true);
+      onAddToMyPodcasts(podcast);
+    }
+  };
+
+  const handleShare = () => {
+    setShowShareModal(true);
   };
 
   return (
@@ -545,16 +570,45 @@ const PodcastPlayer = ({ podcast, onNext, onPrevious, onAddToMyPodcasts }) => {
 
           {/* Controls */}
           <div className="flex items-center justify-between">
-            <button 
-              onClick={toggleMute}
-              className="p-2 text-gray-400 hover:text-white transition-colors"
+            <div 
+              className="relative"
+              onMouseEnter={handleVolumeMouseEnter}
+              onMouseLeave={handleVolumeMouseLeave}
             >
-              {isMuted ? (
-                <SpeakerXMarkIcon className="h-6 w-6" />
-              ) : (
-                <SpeakerWaveIcon className="h-6 w-6" />
-              )}
-            </button>
+              <button 
+                onClick={toggleMute}
+                className="p-2 text-gray-400 hover:text-white transition-colors"
+              >
+                {isMuted ? (
+                  <SpeakerXMarkIcon className="h-6 w-6" />
+                ) : (
+                  <SpeakerWaveIcon className="h-6 w-6" />
+                )}
+              </button>
+
+              {/* Volume slider */}
+              <AnimatePresence>
+                {showVolumeControl && (
+                  <motion.div 
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 10 }}
+                    className="absolute bottom-full left-0 mb-2 p-2 bg-white/10 backdrop-blur-md rounded-lg border border-white/10"
+                  >
+                    <div 
+                      ref={volumeBarRef}
+                      className="relative w-24 h-2 bg-white/10 rounded-full cursor-pointer"
+                      onClick={handleVolumeChange}
+                    >
+                      <div 
+                        className="absolute h-full bg-gradient-to-r from-purple-500 to-pink-500 rounded-full"
+                        style={{ width: `${volume * 100}%` }}
+                      />
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
 
             <button 
               onClick={togglePlayPause}
@@ -577,7 +631,6 @@ const PodcastPlayer = ({ podcast, onNext, onPrevious, onAddToMyPodcasts }) => {
             <div className="flex items-center gap-4">
               <button
                 onClick={handleAddToMyPodcasts}
-                disabled={isAddedToMyPodcasts}
                 className={`p-2 rounded-full transition-colors ${
                   isAddedToMyPodcasts 
                     ? 'text-pink-500' 
@@ -589,6 +642,7 @@ const PodcastPlayer = ({ podcast, onNext, onPrevious, onAddToMyPodcasts }) => {
               </button>
               
               <button
+                onClick={handleShare}
                 className="p-2 text-gray-400 hover:text-white transition-colors"
                 title="Share Podcast"
               >
@@ -596,30 +650,22 @@ const PodcastPlayer = ({ podcast, onNext, onPrevious, onAddToMyPodcasts }) => {
               </button>
             </div>
           </div>
-
-          {/* Volume slider (only show when hovering speaker icon) */}
-          <AnimatePresence>
-            {showVolumeControl && (
-              <motion.div 
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: 10 }}
-                className="absolute bottom-full left-0 mb-2 p-2 bg-white/10 backdrop-blur-md rounded-lg border border-white/10"
-              >
-                <div 
-                  className="relative w-24 h-2 bg-white/10 rounded-full cursor-pointer"
-                  onClick={handleVolumeChange}
-                >
-                  <div 
-                    className="absolute h-full bg-gradient-to-r from-purple-500 to-pink-500 rounded-full"
-                    style={{ width: `${volume * 100}%` }}
-                  />
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
         </div>
       </div>
+
+      {/* Share Modal */}
+      <AnimatePresence>
+        {showShareModal && (
+          <ShareStoryModal
+            isVisible={showShareModal}
+            onClose={() => setShowShareModal(false)}
+            audioUrl={podcast.audio_url}
+            duration={soundRef.current?.duration() || 0}
+            podcastTitle={podcast.title}
+            podcastTopic={podcast.topic}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 };

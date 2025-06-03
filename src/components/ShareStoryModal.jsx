@@ -11,6 +11,7 @@ const ShareStoryModal = ({ isVisible, onClose, audioUrl, duration, podcastTitle,
   const [processingStatus, setProcessingStatus] = useState('');
   const [previewUrl, setPreviewUrl] = useState(null);
   const [isPreviewPlaying, setIsPreviewPlaying] = useState(false);
+  const [renderedVideo, setRenderedVideo] = useState(null);
   const canvasRef = useRef(null);
   const mediaRecorderRef = useRef(null);
   const audioContextRef = useRef(null);
@@ -268,6 +269,14 @@ const ShareStoryModal = ({ isVisible, onClose, audioUrl, duration, podcastTitle,
   }, [isVisible]);
 
   const createStoryVideo = async () => {
+    // Nếu đã có video được render trước đó, sử dụng lại
+    if (renderedVideo) {
+      setVideoBlob(renderedVideo);
+      setProcessingStatus('Hoàn thành!');
+      setProgress(100);
+      return;
+    }
+
     try {
       cleanupRenderProcess();
       setIsProcessing(true);
@@ -421,6 +430,7 @@ const ShareStoryModal = ({ isVisible, onClose, audioUrl, duration, podcastTitle,
       mediaRecorder.onstop = () => {
         const blob = new Blob(chunks, { type: 'video/webm' });
         setVideoBlob(blob);
+        setRenderedVideo(blob); // Lưu video đã render
         setProcessingStatus('Hoàn thành!');
         setProgress(100);
         setIsProcessing(false);
@@ -453,10 +463,8 @@ const ShareStoryModal = ({ isVisible, onClose, audioUrl, duration, podcastTitle,
 
   const handleShare = () => {
     if (!videoBlob) {
-      // Bắt đầu render video nếu chưa có
       createStoryVideo();
     } else if (selectedPlatform) {
-      // Xử lý share khi đã chọn platform
       shareToSocialMedia(selectedPlatform);
     }
   };
@@ -464,14 +472,18 @@ const ShareStoryModal = ({ isVisible, onClose, audioUrl, duration, podcastTitle,
   const downloadVideo = () => {
     if (!videoBlob) return;
     
-    const url = URL.createObjectURL(videoBlob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${podcastTitle.replace(/\s+/g, '-').toLowerCase()}-story.mp4`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    try {
+      const url = URL.createObjectURL(videoBlob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${podcastTitle.replace(/\s+/g, '-').toLowerCase()}-story.mp4`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Lỗi khi tải video:', err);
+    }
   };
 
   const shareToSocialMedia = (platform) => {
