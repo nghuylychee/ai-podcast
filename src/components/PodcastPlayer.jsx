@@ -18,8 +18,10 @@ import {
 } from '@heroicons/react/24/solid';
 import StoryRecorder from './StoryRecorder';
 import ShareStoryModal from './ShareStoryModal';
+import { useAuth } from '../contexts/AuthContext';
 
 const PodcastPlayer = ({ podcast, onNext, onPrevious, onAddToMyPodcasts }) => {
+  const { user, savePodcast, removePodcast } = useAuth();
   const [isPlaying, setIsPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
@@ -57,6 +59,16 @@ const PodcastPlayer = ({ podcast, onNext, onPrevious, onAddToMyPodcasts }) => {
   const chunksRef = useRef([]);
   const renderIntervalRef = useRef(null);
 
+  // Check if podcast is in My Podcasts when component mounts or user changes
+  useEffect(() => {
+    if (user && user.savedPodcasts) {
+      const isInMyPodcasts = user.savedPodcasts.some(p => p.id === podcast.id);
+      setIsAddedToMyPodcasts(isInMyPodcasts);
+    } else {
+      setIsAddedToMyPodcasts(false);
+    }
+  }, [user, podcast.id]);
+
   const initializeAudio = async () => {
     if (soundRef.current) {
       soundRef.current.unload();
@@ -68,6 +80,11 @@ const PodcastPlayer = ({ podcast, onNext, onPrevious, onAddToMyPodcasts }) => {
     setCurrentTime(0);
 
     try {
+      // Check if audio_url exists
+      if (!podcast.audio_url) {
+        throw new Error('Audio URL is missing');
+      }
+
       // Check if it's a blob URL
       const isBlob = podcast.audio_url.startsWith('blob:');
       
@@ -389,28 +406,27 @@ const PodcastPlayer = ({ podcast, onNext, onPrevious, onAddToMyPodcasts }) => {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const handleSaveVideo = (blob) => {
-    const url = URL.createObjectURL(blob);
+  const handleSaveVideo = () => {
+    if (!shareUrl) return;
+    
     const a = document.createElement('a');
+    a.href = shareUrl;
+    a.download = `${podcast.title.replace(/\s+/g, '-').toLowerCase()}-story.webm`;
     document.body.appendChild(a);
-    a.style = 'display: none';
-    a.href = url;
-    a.download = `${podcast.title.replace(/\s+/g, '-').toLowerCase()}-story.mp4`;
     a.click();
-    URL.revokeObjectURL(url);
-    setShowRecorder(false);
+    document.body.removeChild(a);
   };
 
-  const saveAsVideo = async () => {
-    if (!soundRef.current || isSavingVideo) return;
+  const handleShare = async () => {
+    setShowShareModal(true);
+    setIsRendering(true);
+    setRenderProgress(0);
     
     try {
-      setIsSavingVideo(true);
-
-      // Tạo canvas cho video
+      // Create video story
       const canvas = document.createElement('canvas');
-      canvas.width = 1080; // Width cho video dọc
-      canvas.height = 1920; // Height cho video dọc (9:16 ratio)
+      canvas.width = 1080; // Width for vertical video
+      canvas.height = 1920; // Height for vertical video (9:16 ratio)
       const ctx = canvas.getContext('2d');
 
       // Setup MediaRecorder
@@ -425,28 +441,13 @@ const PodcastPlayer = ({ podcast, onNext, onPrevious, onAddToMyPodcasts }) => {
         if (e.data.size > 0) chunks.push(e.data);
       };
 
-      mediaRecorder.onstop = () => {
-        const blob = new Blob(chunks, { type: 'video/mp4' });
+      mediaRecorder.onstop = async () => {
+        const blob = new Blob(chunks, { type: 'video/webm' });
         const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        document.body.appendChild(a);
-        a.style = 'display: none';
-        a.href = url;
-        a.download = `${podcast.title.replace(/\s+/g, '-').toLowerCase()}-podcast.mp4`;
-        a.click();
-        URL.revokeObjectURL(url);
-        setIsSavingVideo(false);
+        setShareUrl(url);
+        setIsRendering(false);
+        setIsClipReady(true);
       };
-
-      // Setup audio
-      const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-      const analyser = audioContext.createAnalyser();
-      analyser.fftSize = 256;
-      
-      const audio = new Audio(podcast.audio_url);
-      const source = audioContext.createMediaElementSource(audio);
-      source.connect(analyser);
-      analyser.connect(audioContext.destination);
 
       // Load assets
       const logo = new Image();
@@ -479,9 +480,11 @@ const PodcastPlayer = ({ podcast, onNext, onPrevious, onAddToMyPodcasts }) => {
         ctx.fillText(podcast.topic, canvas.width/2, canvas.height * 0.3);
 
         // Draw audio visualizer
-        const bufferLength = analyser.frequencyBinCount;
+        const bufferLength = 256;
         const dataArray = new Uint8Array(bufferLength);
-        analyser.getByteFrequencyData(dataArray);
+        for (let i = 0; i < bufferLength; i++) {
+          dataArray[i] = Math.random() * 255;
+        }
 
         const barWidth = (canvas.width * 0.8) / bufferLength;
         const barSpacing = 2;
@@ -503,183 +506,124 @@ const PodcastPlayer = ({ podcast, onNext, onPrevious, onAddToMyPodcasts }) => {
 
       // Start recording
       mediaRecorder.start();
-      audio.play();
-      drawFrame();
-
-      // Stop when audio ends
-      audio.onended = () => {
-        mediaRecorder.stop();
-        audio.pause();
-        audio.currentTime = 0;
-      };
-
-    } catch (err) {
-      console.error('Lỗi khi tạo video:', err);
-      setIsSavingVideo(false);
-    }
-  };
-
-  const handleAddToMyPodcasts = () => {
-    if (!isAddedToMyPodcasts) {
-      setIsAddedToMyPodcasts(true);
-      onAddToMyPodcasts(podcast);
-    }
-  };
-
-  const handleShare = async () => {
-    if (!isClipReady) {
-      setIsSharing(true);
-      return;
-    }
-
-    try {
-      if (navigator.share) {
-        await navigator.share({
-          title: podcast.title,
-          text: `Check out this podcast: ${podcast.title}`,
-          url: shareUrl
-        });
-      } else {
-        // Fallback for browsers that don't support Web Share API
-        await navigator.clipboard.writeText(shareUrl);
-        alert('Share URL copied to clipboard!');
-      }
-    } catch (error) {
-      console.error('Error sharing:', error);
-    }
-  };
-
-  // Function to start background rendering
-  const startBackgroundRendering = async () => {
-    if (isRendering || isClipReady || !canvasRef.current) return;
-    
-    setIsRendering(true);
-    setRenderProgress(0);
-    chunksRef.current = [];
-    
-    try {
-      const canvas = canvasRef.current;
-      const ctx = canvas.getContext('2d');
-
-      // Setup MediaRecorder
-      const stream = canvas.captureStream(30);
-      mediaRecorderRef.current = new MediaRecorder(stream, {
-        mimeType: 'video/webm;codecs=vp9',
-        videoBitsPerSecond: 2500000
-      });
-
-      mediaRecorderRef.current.ondataavailable = (e) => {
-        if (e.data.size > 0) {
-          chunksRef.current.push(e.data);
-        }
-      };
-
-      mediaRecorderRef.current.onstop = async () => {
-        const blob = new Blob(chunksRef.current, { type: 'video/webm' });
-        const url = URL.createObjectURL(blob);
-        setShareUrl(url);
-        setIsClipReady(true);
-        setIsRendering(false);
-      };
-
-      // Draw initial frame
-      const drawFrame = () => {
-        // Background gradient
-        const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
-        gradient.addColorStop(0, '#1a1a1a');
-        gradient.addColorStop(1, '#2a2a2a');
-        ctx.fillStyle = gradient;
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-        // Draw podcast info
-        ctx.fillStyle = '#ffffff';
-        ctx.textAlign = 'center';
-        
-        // Title
-        ctx.font = 'bold 48px Arial';
-        ctx.fillText(podcast.title, canvas.width/2, canvas.height * 0.25);
-        
-        // Topic
-        ctx.font = '32px Arial';
-        ctx.fillStyle = 'rgba(255,255,255,0.8)';
-        ctx.fillText(podcast.topic, canvas.width/2, canvas.height * 0.3);
-
-        // Draw audio visualizer
-        if (soundRef.current && soundRef.current.playing()) {
-          const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-          const analyser = audioContext.createAnalyser();
-          analyser.fftSize = 256;
-          
-          const audio = new Audio(podcast.audio_url);
-          const source = audioContext.createMediaElementSource(audio);
-          source.connect(analyser);
-          analyser.connect(audioContext.destination);
-
-          const bufferLength = analyser.frequencyBinCount;
-          const dataArray = new Uint8Array(bufferLength);
-          analyser.getByteFrequencyData(dataArray);
-
-          const barWidth = (canvas.width * 0.8) / bufferLength;
-          const barSpacing = 2;
-          const maxBarHeight = canvas.height * 0.15;
-          const startX = canvas.width * 0.1;
-          const startY = canvas.height * 0.5;
-
-          ctx.fillStyle = '#4F46E5';
-          for (let i = 0; i < bufferLength; i++) {
-            const barHeight = (dataArray[i] / 255) * maxBarHeight;
-            const x = startX + i * (barWidth + barSpacing);
-            ctx.fillRect(x, startY - barHeight/2, barWidth, barHeight);
-          }
-        }
-
-        if (mediaRecorderRef.current?.state === 'recording') {
-          requestAnimationFrame(drawFrame);
-        }
-      };
-
-      // Start recording
-      mediaRecorderRef.current.start();
       drawFrame();
 
       // Simulate progress
       let progress = 0;
-      renderIntervalRef.current = setInterval(() => {
+      const interval = setInterval(() => {
         progress += 1;
         setRenderProgress(progress);
         if (progress >= 100) {
-          clearInterval(renderIntervalRef.current);
-          mediaRecorderRef.current.stop();
+          clearInterval(interval);
+          mediaRecorder.stop();
         }
       }, 50);
 
     } catch (error) {
-      console.error('Error starting background rendering:', error);
+      console.error('Error creating story:', error);
       setIsRendering(false);
+      alert('Error creating story. Please try again.');
     }
   };
 
-  // Start background rendering when component mounts
-  useEffect(() => {
-    if (podcast && !isClipReady) {
-      startBackgroundRendering();
-    }
-    return () => {
-      if (renderIntervalRef.current) {
-        clearInterval(renderIntervalRef.current);
-      }
-      if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
-        mediaRecorderRef.current.stop();
-      }
-    };
-  }, [podcast]);
+  const handleShareVideo = async () => {
+    if (!shareUrl) return;
 
-  // Update share button state
-  useEffect(() => {
-    if (isClipReady) {
-      setIsSharing(false);
+    try {
+      const response = await fetch(shareUrl);
+      const blob = await response.blob();
+      const file = new File([blob], 'podcast-story.webm', { type: 'video/webm' });
+
+      if (navigator.share && navigator.canShare({ files: [file] })) {
+        await navigator.share({
+          title: podcast.title,
+          text: `Check out this podcast: ${podcast.title}`,
+          files: [file]
+        });
+      } else {
+        handleSaveVideo();
+      }
+    } catch (error) {
+      console.error('Error sharing:', error);
+      handleSaveVideo();
     }
-  }, [isClipReady]);
+  };
+
+  const handleAddToMyPodcasts = async () => {
+    try {
+      if (!isAddedToMyPodcasts) {
+        if (!user) {
+          // Show notification to login
+          const notification = document.createElement('div');
+          notification.className = 'fixed bottom-4 right-4 bg-yellow-500 text-white px-4 py-2 rounded-lg shadow-lg z-50 animate-fade-in-up';
+          notification.textContent = 'Please login to save podcasts';
+          document.body.appendChild(notification);
+          
+          setTimeout(() => {
+            notification.classList.add('animate-fade-out');
+            setTimeout(() => {
+              document.body.removeChild(notification);
+            }, 300);
+          }, 2000);
+          return;
+        }
+
+        // Save podcast to user data
+        const podcastWithTimestamp = {
+          ...podcast,
+          timestamp: Date.now()
+        };
+        await savePodcast(podcastWithTimestamp);
+        setIsAddedToMyPodcasts(true);
+        onAddToMyPodcasts(podcastWithTimestamp);
+        
+        // Show success notification
+        const notification = document.createElement('div');
+        notification.className = 'fixed bottom-4 right-4 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg z-50 animate-fade-in-up';
+        notification.textContent = 'Added to My Podcasts';
+        document.body.appendChild(notification);
+        
+        setTimeout(() => {
+          notification.classList.add('animate-fade-out');
+          setTimeout(() => {
+            document.body.removeChild(notification);
+          }, 300);
+        }, 2000);
+      } else {
+        // Remove podcast from user data
+        await removePodcast(podcast.id);
+        setIsAddedToMyPodcasts(false);
+        onAddToMyPodcasts(null);
+        
+        // Show removal notification
+        const notification = document.createElement('div');
+        notification.className = 'fixed bottom-4 right-4 bg-red-500 text-white px-4 py-2 rounded-lg shadow-lg z-50 animate-fade-in-up';
+        notification.textContent = 'Removed from My Podcasts';
+        document.body.appendChild(notification);
+        
+        setTimeout(() => {
+          notification.classList.add('animate-fade-out');
+          setTimeout(() => {
+            document.body.removeChild(notification);
+          }, 300);
+        }, 2000);
+      }
+    } catch (err) {
+      console.error('Error managing podcast:', err);
+      // Show error notification
+      const notification = document.createElement('div');
+      notification.className = 'fixed bottom-4 right-4 bg-red-500 text-white px-4 py-2 rounded-lg shadow-lg z-50 animate-fade-in-up';
+      notification.textContent = err.message || 'Error managing podcast';
+      document.body.appendChild(notification);
+      
+      setTimeout(() => {
+        notification.classList.add('animate-fade-out');
+        setTimeout(() => {
+          document.body.removeChild(notification);
+        }, 300);
+      }, 2000);
+    }
+  };
 
   const handleBack = () => {
     onPrevious();
@@ -836,18 +780,14 @@ const PodcastPlayer = ({ podcast, onNext, onPrevious, onAddToMyPodcasts }) => {
       </div>
 
       {/* Share Modal */}
-      <AnimatePresence>
-        {showShareModal && (
-          <ShareStoryModal
-            isVisible={showShareModal}
-            onClose={() => setShowShareModal(false)}
-            audioUrl={podcast.audio_url}
-            duration={soundRef.current?.duration() || 0}
-            podcastTitle={podcast.title}
-            podcastTopic={podcast.topic}
-          />
-        )}
-      </AnimatePresence>
+      <ShareStoryModal
+        isVisible={showShareModal}
+        onClose={() => setShowShareModal(false)}
+        audioUrl={podcast.audio_url}
+        duration={soundRef.current?.duration() || podcast.duration || 60}
+        podcastTitle={podcast.title}
+        podcastTopic={podcast.topic}
+      />
     </div>
   );
 };

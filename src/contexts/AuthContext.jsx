@@ -28,7 +28,8 @@ export const AuthProvider = ({ children }) => {
         id: '1',
         name: 'Nguyễn Huy',
         email: email,
-        avatar: 'NH'
+        avatar: 'NH',
+        savedPodcasts: [] // Add savedPodcasts array to user data
       };
       
       setUser(mockUser);
@@ -56,7 +57,8 @@ export const AuthProvider = ({ children }) => {
         id: '1',
         name: 'Nguyễn Huy',
         email: email,
-        avatar: 'NH'
+        avatar: 'NH',
+        savedPodcasts: [] // Add savedPodcasts array to user data
       };
       
       setUser(mockUser);
@@ -89,13 +91,69 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const savePodcast = async (podcast) => {
+    if (!user) {
+      throw new Error('Please login to save podcasts');
+    }
+
+    try {
+      setLoading(true);
+      setError(null);
+
+      // Update user's saved podcasts
+      const updatedUser = {
+        ...user,
+        savedPodcasts: [...user.savedPodcasts, podcast]
+      };
+
+      setUser(updatedUser);
+      localStorage.setItem('user', JSON.stringify(updatedUser));
+
+      return updatedUser;
+    } catch (err) {
+      setError(err.message);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const removePodcast = async (podcastId) => {
+    if (!user) {
+      throw new Error('Please login to manage podcasts');
+    }
+
+    try {
+      setLoading(true);
+      setError(null);
+
+      // Remove podcast from user's saved podcasts
+      const updatedUser = {
+        ...user,
+        savedPodcasts: user.savedPodcasts.filter(p => p.id !== podcastId)
+      };
+
+      setUser(updatedUser);
+      localStorage.setItem('user', JSON.stringify(updatedUser));
+
+      return updatedUser;
+    } catch (err) {
+      setError(err.message);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const value = {
     user,
     loading,
     error,
     login,
     signup,
-    logout
+    logout,
+    savePodcast,
+    removePodcast
   };
 
   return (

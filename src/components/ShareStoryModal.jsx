@@ -1,9 +1,9 @@
 import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ShareIcon, ArrowLeftIcon } from '@heroicons/react/24/solid';
+import { ShareIcon, ArrowLeftIcon, XMarkIcon, ArrowDownTrayIcon } from '@heroicons/react/24/outline';
 
 const ShareStoryModal = ({ isVisible, onClose, audioUrl, duration, podcastTitle, podcastTopic }) => {
-  const [step, setStep] = useState('preview'); // preview, edit, share
+  const [step, setStep] = useState('preview'); // preview, share
   const [videoBlob, setVideoBlob] = useState(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [selectedPlatform, setSelectedPlatform] = useState(null);
@@ -182,6 +182,35 @@ const ShareStoryModal = ({ isVisible, onClose, audioUrl, duration, podcastTitle,
     wrapText(podcastTopic, width/2, height * 0.35, width * 0.8, 40);
   };
 
+  const drawPodcastInfo = (ctx, width, height) => {
+    // Draw title
+    ctx.fillStyle = '#ffffff';
+    ctx.textAlign = 'center';
+    ctx.font = 'bold 48px Arial';
+    ctx.fillText(podcastTitle, width/2, height * 0.25);
+    
+    // Draw topic
+    ctx.font = '32px Arial';
+    ctx.fillStyle = 'rgba(255,255,255,0.8)';
+    ctx.fillText(podcastTopic, width/2, height * 0.3);
+  };
+
+  const drawAudioVisualizer = (ctx, width, height) => {
+    // Bỏ phần visualizer animation
+    return;
+  };
+
+  const drawCTA = (ctx, width, height) => {
+    ctx.fillStyle = 'rgba(255,255,255,0.9)';
+    ctx.font = 'bold 36px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText('Listen to more podcasts', width/2, height * 0.8);
+    
+    ctx.font = '24px Arial';
+    ctx.fillStyle = 'rgba(255,255,255,0.7)';
+    ctx.fillText('@PodcastAI', width/2, height * 0.85);
+  };
+
   // Cleanup all audio elements
   const cleanupAudio = () => {
     // Cleanup current audio element
@@ -269,184 +298,189 @@ const ShareStoryModal = ({ isVisible, onClose, audioUrl, duration, podcastTitle,
   }, [isVisible]);
 
   const createStoryVideo = async () => {
-    // Nếu đã có video được render trước đó, sử dụng lại
-    if (renderedVideo) {
-      setVideoBlob(renderedVideo);
-      setProcessingStatus('Hoàn thành!');
-      setProgress(100);
-      return;
-    }
-
     try {
       cleanupRenderProcess();
       setIsProcessing(true);
       setProgress(0);
       setProcessingStatus('Đang chuẩn bị...');
 
+      // Kiểm tra audioUrl
+      if (!audioUrl) {
+        throw new Error('Audio URL không hợp lệ');
+      }
+      console.log('Audio URL:', audioUrl);
+
+      // Kiểm tra duration
+      if (!duration || duration <= 0) {
+        throw new Error('Duration không hợp lệ');
+      }
+      console.log('Duration:', duration);
+
+      // Tạo canvas mới nếu chưa có
+      if (!canvasRef.current) {
+        const canvas = document.createElement('canvas');
+        // Giảm kích thước canvas xuống 1/5
+        canvas.width = 216; // 1080/5
+        canvas.height = 384; // 1920/5
+        canvasRef.current = canvas;
+      }
+
       const canvas = canvasRef.current;
-      const offscreen = new OffscreenCanvas(canvas.width, canvas.height);
-      const offCtx = offscreen.getContext('2d');
+      const ctx = canvas.getContext('2d');
       
       setProcessingStatus('Đang tải audio...');
+      
+      // Tạo audio element mới
       const audioElement = new Audio();
       audioElement.crossOrigin = 'anonymous';
       
-      await new Promise((resolve, reject) => {
-        audioElement.addEventListener('canplaythrough', resolve, { once: true });
-        audioElement.addEventListener('error', reject, { once: true });
+      // Thêm xử lý lỗi CORS
+      try {
+        // Thử fetch audio file
+        console.log('Bắt đầu fetch audio...');
+        const response = await fetch(audioUrl, {
+          method: 'GET',
+          mode: 'cors',
+          credentials: 'omit',
+          headers: {
+            'Accept': 'audio/webm,audio/mp3,audio/*;q=0.9,*/*;q=0.8'
+          }
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        console.log('Fetch audio thành công, đang tạo blob...');
+        const blob = await response.blob();
+        const blobUrl = URL.createObjectURL(blob);
+        audioElement.src = blobUrl;
+      } catch (fetchError) {
+        console.error('Fetch audio thất bại:', fetchError);
+        console.log('Thử tải audio trực tiếp...');
         audioElement.src = audioUrl;
+      }
+
+      // Đợi audio load xong
+      await new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => {
+          audioElement.removeEventListener('canplaythrough', handleCanPlay);
+          audioElement.removeEventListener('error', handleError);
+          reject(new Error('Audio load timeout'));
+        }, 10000);
+
+        const handleCanPlay = () => {
+          clearTimeout(timeout);
+          audioElement.removeEventListener('error', handleError);
+          console.log('Audio load thành công');
+          resolve();
+        };
+
+        const handleError = (e) => {
+          clearTimeout(timeout);
+          audioElement.removeEventListener('canplaythrough', handleCanPlay);
+          console.error('Audio load thất bại:', e);
+          reject(new Error('Audio load failed'));
+        };
+
+        audioElement.addEventListener('canplaythrough', handleCanPlay);
+        audioElement.addEventListener('error', handleError);
         audioElement.load();
       });
 
+      // Lưu audio element để cleanup sau
       audioElementRef.current = audioElement;
       setActiveAudioElements(prev => [...prev, audioElement]);
 
-      setProcessingStatus('Đang khởi tạo audio context...');
-      const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-      audioContextRef.current = audioContext;
-      const source = audioContext.createMediaElementSource(audioElement);
-      const analyser = audioContext.createAnalyser();
-      analyser.fftSize = 512;
-      source.connect(analyser);
-      analyser.connect(audioContext.destination);
-      
-      setProcessingStatus('Đang chuẩn bị render video...');
-      const stream = canvas.captureStream(30);
-      const mediaRecorder = new MediaRecorder(stream, {
-        mimeType: 'video/webm;codecs=vp9',
-        videoBitsPerSecond: 8000000
+      // Setup MediaRecorder với audio track
+      const stream = canvas.captureStream(15); // Giảm frame rate xuống 15fps
+      const audioStream = audioElement.captureStream();
+      audioStream.getAudioTracks().forEach(track => {
+        stream.addTrack(track);
       });
-      mediaRecorderRef.current = mediaRecorder;
+
+      mediaRecorderRef.current = new MediaRecorder(stream, {
+        mimeType: 'video/webm;codecs=vp9,opus',
+        videoBitsPerSecond: 1000000 // Giảm bitrate xuống 1Mbps
+      });
 
       const chunks = [];
-      let startTime = null;
-      let lastProgressUpdate = 0;
-
-      const drawFrame = (timestamp) => {
-        if (!startTime) {
-          startTime = timestamp;
-          audioElement.play();
-        }
-
-        const elapsed = audioElement.currentTime;
-        const progressPercent = Math.min((elapsed / duration) * 100, 100);
-        
-        // Chỉ update progress khi thay đổi đáng kể (tránh re-render quá nhiều)
-        if (Math.abs(progressPercent - lastProgressUpdate) >= 1) {
-          setProgress(progressPercent);
-          lastProgressUpdate = progressPercent;
-        }
-
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(offscreen, 0, 0);
-
-        // Draw visualizer
-        if (analyser) {
-          const bufferLength = analyser.frequencyBinCount;
-          const dataArray = new Uint8Array(bufferLength);
-          analyser.getByteFrequencyData(dataArray);
-
-          const width = canvas.width;
-          const height = canvas.height;
-          const visualizerHeight = height * 0.2;
-          const startY = height * 0.5;
-          
-          ctx.beginPath();
-          ctx.moveTo(0, startY);
-          
-          for (let i = 0; i < bufferLength; i++) {
-            const x = (width * i) / bufferLength;
-            const value = dataArray[i] / 255;
-            const y = startY + Math.sin(i * 0.1 + elapsed * 0.002) * value * visualizerHeight;
-            
-            if (i === 0) {
-              ctx.moveTo(x, y);
-            } else {
-              ctx.lineTo(x, y);
-            }
-          }
-          
-          const gradient = ctx.createLinearGradient(0, startY - visualizerHeight, 0, startY + visualizerHeight);
-          gradient.addColorStop(0, '#4F46E5');
-          gradient.addColorStop(1, '#818CF8');
-          
-          ctx.strokeStyle = gradient;
-          ctx.lineWidth = 4;
-          ctx.stroke();
-        }
-
-        // Add CTA at the end
-        if (elapsed > (duration - 3)) {
-          const fadeIn = Math.min((elapsed - (duration - 3)) / 3, 1);
-          
-          ctx.save();
-          ctx.globalAlpha = fadeIn;
-          
-          ctx.fillStyle = 'rgba(0,0,0,0.8)';
-          ctx.fillRect(0, 0, canvas.width, canvas.height);
-          
-          if (logoRef.current) {
-            const logoSize = canvas.width * 0.4;
-            const logoX = (canvas.width - logoSize) / 2;
-            const logoY = (canvas.height - logoSize) / 2 - 100;
-            ctx.drawImage(logoRef.current, logoX, logoY, logoSize, logoSize);
-          }
-          
-          ctx.fillStyle = '#ffffff';
-          ctx.font = 'bold 48px Arial';
-          ctx.textAlign = 'center';
-          ctx.fillText('Try it on', canvas.width/2, canvas.height * 0.6);
-          ctx.font = 'bold 64px Arial';
-          ctx.fillText('Podcast AI', canvas.width/2, canvas.height * 0.7);
-          
-          ctx.restore();
-        }
-
-        if (elapsed < duration) {
-          animationFrameRef.current = requestAnimationFrame(drawFrame);
-        } else {
-          // Khi render xong
-          mediaRecorder.stop();
-          if (animationFrameRef.current) {
-            cancelAnimationFrame(animationFrameRef.current);
-            animationFrameRef.current = null;
-          }
-          setProgress(100);
-          setProcessingStatus('Hoàn thành!');
-          setIsProcessing(false);
-        }
+      mediaRecorderRef.current.ondataavailable = (e) => {
+        if (e.data.size > 0) chunks.push(e.data);
       };
 
-      // Copy initial frame to offscreen canvas
-      drawPreview();
-      offCtx.drawImage(canvas, 0, 0);
-
-      mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          chunks.push(event.data);
-        }
-      };
-
-      mediaRecorder.onstop = () => {
+      mediaRecorderRef.current.onstop = async () => {
         const blob = new Blob(chunks, { type: 'video/webm' });
+        const url = URL.createObjectURL(blob);
         setVideoBlob(blob);
-        setRenderedVideo(blob); // Lưu video đã render
+        setRenderedVideo(blob);
         setProcessingStatus('Hoàn thành!');
         setProgress(100);
         setIsProcessing(false);
-        
-        // Cleanup render audio
-        cleanupAudio();
       };
 
-      setProcessingStatus('Bắt đầu ghi...');
-      mediaRecorder.start();
-      animationFrameRef.current = requestAnimationFrame(drawFrame);
+      // Load assets
+      const logo = new Image();
+      logo.src = '/logo.png';
+      await new Promise(resolve => { logo.onload = resolve; });
 
-    } catch (err) {
-      console.error('Lỗi khi tạo video:', err);
-      setProcessingStatus('Có lỗi xảy ra!');
+      // Start recording
+      mediaRecorderRef.current.start();
+      
+      // Draw frames
+      const startTime = Date.now();
+      const drawFrame = () => {
+        const currentTime = Date.now() - startTime;
+        const progress = Math.min(currentTime / (duration * 1000), 1);
+        setProgress(progress * 100);
+
+        // Draw background
+        const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+        gradient.addColorStop(0, '#1a1a1a');
+        gradient.addColorStop(1, '#2a2a2a');
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Draw logo
+        const logoSize = canvas.width * 0.2;
+        ctx.drawImage(logo, canvas.width - logoSize - 20, 20, logoSize, logoSize);
+
+        // Draw podcast info
+        drawPodcastInfo(ctx, canvas.width, canvas.height);
+
+        // Draw CTA at the end
+        if (progress > 0.9) {
+          drawCTA(ctx, canvas.width, canvas.height);
+        }
+
+        if (progress < 1) {
+          animationFrameRef.current = requestAnimationFrame(drawFrame);
+        } else {
+          mediaRecorderRef.current.stop();
+        }
+      };
+
+      // Start drawing và phát audio (muted)
+      audioElement.muted = true; // Tắt âm thanh trong quá trình render
+      audioElement.play();
+      drawFrame();
+
+      // Đợi render xong thì bật lại âm thanh cho preview
+      mediaRecorderRef.current.onstop = async () => {
+        const blob = new Blob(chunks, { type: 'video/webm' });
+        const url = URL.createObjectURL(blob);
+        setVideoBlob(blob);
+        setRenderedVideo(blob);
+        setProcessingStatus('Hoàn thành!');
+        setProgress(100);
+        setIsProcessing(false);
+        audioElement.muted = false; // Bật lại âm thanh cho preview
+      };
+
+    } catch (error) {
+      console.error('Error creating story:', error);
       cleanupRenderProcess();
+      throw error;
     }
   };
 
@@ -456,16 +490,64 @@ const ShareStoryModal = ({ isVisible, onClose, audioUrl, duration, podcastTitle,
     }
   }, [isVisible]);
 
-  const handlePlatformSelect = (platform) => {
-    setSelectedPlatform(platform);
-    createStoryVideo();
-  };
+  const handlePlatformSelect = async (platform) => {
+    if (!videoBlob) return;
+    
+    try {
+      // Tạo file từ blob
+      const file = new File([videoBlob], `${podcastTitle.replace(/\s+/g, '-').toLowerCase()}-story.mp4`, {
+        type: 'video/mp4'
+      });
 
-  const handleShare = () => {
-    if (!videoBlob) {
-      createStoryVideo();
-    } else if (selectedPlatform) {
-      shareToSocialMedia(selectedPlatform);
+      // Tự động tải video về máy trước
+      const url = URL.createObjectURL(videoBlob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${podcastTitle.replace(/\s+/g, '-').toLowerCase()}-story.mp4`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      // Mở app tương ứng
+      switch (platform.id) {
+        case 'instagram':
+          if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
+            // Tạo URL scheme cho Instagram
+            const instagramUrl = `instagram-stories://share?source_application=podcastai`;
+            window.location.href = instagramUrl;
+          } else {
+            // Mở Instagram trên web
+            window.open('https://www.instagram.com/stories/create', '_blank');
+          }
+          break;
+
+        case 'facebook':
+          if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
+            // Tạo URL scheme cho Facebook
+            const facebookUrl = `fb://publish/?text=${encodeURIComponent(podcastTitle)}`;
+            window.location.href = facebookUrl;
+          } else {
+            // Mở Facebook trên web
+            window.open('https://www.facebook.com/stories/create', '_blank');
+          }
+          break;
+
+        case 'tiktok':
+          if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
+            // Tạo URL scheme cho TikTok
+            const tiktokUrl = `snssdk1233://`;
+            window.location.href = tiktokUrl;
+          } else {
+            // Mở TikTok trên web
+            window.open('https://www.tiktok.com/upload', '_blank');
+          }
+          break;
+      }
+
+    } catch (err) {
+      console.error('Lỗi khi share:', err);
+      alert('Không thể share trực tiếp. Vui lòng tải video về và share thủ công.');
     }
   };
 
@@ -486,40 +568,6 @@ const ShareStoryModal = ({ isVisible, onClose, audioUrl, duration, podcastTitle,
     }
   };
 
-  const shareToSocialMedia = (platform) => {
-    if (!videoBlob || !platform) return;
-
-    // Tải video xuống trước khi share
-    downloadVideo();
-
-    // Mở app tương ứng
-    switch (platform.id) {
-      case 'instagram':
-        if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
-          window.location.href = 'instagram://story-camera';
-        } else {
-          alert('Để chia sẻ lên Instagram Story:\n1. Tải video về máy\n2. Mở Instagram trên điện thoại\n3. Tạo story mới và chọn video vừa tải');
-        }
-        break;
-
-      case 'facebook':
-        if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
-          window.location.href = 'fb://story';
-        } else {
-          window.open('https://www.facebook.com/stories/create', '_blank');
-        }
-        break;
-
-      case 'tiktok':
-        if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
-          window.location.href = 'snssdk1233://';
-        } else {
-          window.open('https://www.tiktok.com/upload', '_blank');
-        }
-        break;
-    }
-  };
-
   const handleClose = () => {
     cleanup();
     cleanupAudio(); // Extra cleanup for audio
@@ -530,7 +578,16 @@ const ShareStoryModal = ({ isVisible, onClose, audioUrl, duration, podcastTitle,
     if (videoRef.current) {
       if (isPreviewPlaying) {
         videoRef.current.pause();
+        if (audioElementRef.current) {
+          audioElementRef.current.pause();
+        }
       } else {
+        if (!audioElementRef.current) {
+          const audio = new Audio(audioUrl);
+          audio.currentTime = videoRef.current.currentTime;
+          audioElementRef.current = audio;
+        }
+        audioElementRef.current.play();
         videoRef.current.play();
       }
       setIsPreviewPlaying(!isPreviewPlaying);
@@ -538,9 +595,11 @@ const ShareStoryModal = ({ isVisible, onClose, audioUrl, duration, podcastTitle,
   };
 
   const handlePreviewTimeUpdate = () => {
-    if (videoRef.current) {
+    if (videoRef.current && audioElementRef.current) {
       const progress = (videoRef.current.currentTime / videoRef.current.duration) * 100;
       setProgress(progress);
+      // Đồng bộ thời gian giữa video và audio
+      audioElementRef.current.currentTime = videoRef.current.currentTime;
     }
   };
 
@@ -550,6 +609,10 @@ const ShareStoryModal = ({ isVisible, onClose, audioUrl, duration, podcastTitle,
     if (videoRef.current) {
       videoRef.current.currentTime = 0;
     }
+    if (audioElementRef.current) {
+      audioElementRef.current.pause();
+      audioElementRef.current.currentTime = 0;
+    }
   };
 
   const renderStep = () => {
@@ -557,24 +620,67 @@ const ShareStoryModal = ({ isVisible, onClose, audioUrl, duration, podcastTitle,
       case 'preview':
         return (
           <div className="space-y-4">
-            <canvas
-              ref={canvasRef}
-              width={1080}
-              height={1920}
-              className="w-full aspect-[9/16] bg-gray-900 rounded-lg"
-            />
-            <div className="grid grid-cols-3 gap-3">
+            {isProcessing ? (
+              <div className="relative aspect-[9/16] bg-black/20 rounded-xl overflow-hidden">
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="text-center">
+                    <div className="w-12 h-12 mx-auto mb-3 border-4 border-purple-500/20 border-t-purple-500 rounded-full animate-spin" />
+                    <p className="text-gray-300 text-sm">Rendering story...</p>
+                    <p className="text-xs text-gray-400 mt-1">{Math.round(progress)}%</p>
+                  </div>
+                </div>
+              </div>
+            ) : videoBlob ? (
+              <div className="relative aspect-[9/16] bg-black/20 rounded-xl overflow-hidden">
+                <video
+                  ref={videoRef}
+                  src={previewUrl}
+                  className="w-full h-full object-cover"
+                  onClick={handlePreviewPlay}
+                  onTimeUpdate={handlePreviewTimeUpdate}
+                  onEnded={handlePreviewEnded}
+                />
+                {!isPreviewPlaying && (
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <button
+                      onClick={handlePreviewPlay}
+                      className="w-16 h-16 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center hover:bg-white/30 transition-colors"
+                    >
+                      <svg className="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : null}
+
+            <div className="grid grid-cols-3 gap-2">
               {platforms.map((platform) => (
                 <button
                   key={platform.id}
                   onClick={() => handlePlatformSelect(platform)}
-                  disabled={isProcessing}
-                  className={`${platform.color} p-3 rounded-lg flex flex-col items-center justify-center space-y-2 hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed`}
+                  disabled={isProcessing || !videoBlob}
+                  className={`${platform.color} p-2 rounded-lg flex flex-col items-center justify-center space-y-1 hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed`}
                 >
-                  <span className="text-2xl">{platform.icon}</span>
-                  <span className="text-white text-sm">{platform.name}</span>
+                  <span className="text-xl">{platform.icon}</span>
+                  <span className="text-white text-xs">{platform.name}</span>
                 </button>
               ))}
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={downloadVideo}
+                disabled={isProcessing || !videoBlob}
+                className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 transition-colors ${
+                  (isProcessing || !videoBlob) ? 'opacity-50 cursor-not-allowed' : ''
+                }`}
+              >
+                <ArrowDownTrayIcon className="w-4 h-4" />
+                <span className="text-sm">Save Video</span>
+              </button>
             </div>
           </div>
         );
@@ -592,44 +698,36 @@ const ShareStoryModal = ({ isVisible, onClose, audioUrl, duration, podcastTitle,
               <h3 className="text-xl font-semibold">Chia sẻ lên {selectedPlatform?.name}</h3>
             </div>
 
-            <canvas
-              ref={canvasRef}
-              width={1080}
-              height={1920}
-              className="w-full aspect-[9/16] bg-gray-900 rounded-lg"
-            />
-
-            {isProcessing && (
-              <div className="space-y-2">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-gray-600 dark:text-gray-400">{processingStatus}</span>
-                  <span className="text-gray-600 dark:text-gray-400">{Math.round(progress)}%</span>
+            <div className="relative aspect-[9/16] bg-black/20 rounded-xl overflow-hidden">
+              <video
+                ref={videoRef}
+                src={previewUrl}
+                className="w-full h-full object-cover"
+                onClick={handlePreviewPlay}
+                onTimeUpdate={handlePreviewTimeUpdate}
+                onEnded={handlePreviewEnded}
+              />
+              {!isPreviewPlaying && (
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <button
+                    onClick={handlePreviewPlay}
+                    className="w-16 h-16 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center hover:bg-white/30 transition-colors"
+                  >
+                    <svg className="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </button>
                 </div>
-                <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-                  <div 
-                    className="h-full bg-blue-500 rounded-full transition-all duration-300"
-                    style={{ width: `${progress}%` }}
-                  />
-                </div>
-              </div>
-            )}
+              )}
+            </div>
 
             <button
-              onClick={handleShare}
-              disabled={isProcessing}
+              onClick={handlePlatformSelect}
               className={`w-full py-3 ${selectedPlatform?.color} rounded-lg flex items-center justify-center space-x-2`}
             >
-              {isProcessing ? (
-                <>
-                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  <span className="text-white">Đang xử lý...</span>
-                </>
-              ) : (
-                <>
-                  <span className="text-2xl">{selectedPlatform?.icon}</span>
-                  <span className="text-white">Chia sẻ ngay</span>
-                </>
-              )}
+              <span className="text-2xl">{selectedPlatform?.icon}</span>
+              <span className="text-white">Chia sẻ ngay</span>
             </button>
 
             <button
@@ -646,127 +744,44 @@ const ShareStoryModal = ({ isVisible, onClose, audioUrl, duration, podcastTitle,
   if (!isVisible) return null;
 
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4"
-      style={{ margin: 0 }}
-    >
-      <div className="bg-white dark:bg-gray-800 rounded-lg p-4 w-full max-w-sm overflow-hidden">
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-            {!isProcessing && videoBlob ? 'Chia sẻ Story' : 'Đang tạo Story...'}
-          </h3>
-          <button
+    <AnimatePresence>
+      {isVisible && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          {/* Backdrop */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="absolute inset-0 bg-black/80 backdrop-blur-sm"
             onClick={handleClose}
-            className="p-1.5 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700"
+          />
+
+          {/* Modal */}
+          <motion.div
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0.9, opacity: 0 }}
+            className="relative w-full max-w-xs mx-auto bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl overflow-hidden"
           >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-        
-        <div className="space-y-3">
-          {!videoBlob && (
-            <canvas
-              ref={canvasRef}
-              width={1080}
-              height={1920}
-              className="w-full aspect-[9/16] bg-gray-900 rounded-lg"
-            />
-          )}
-
-          {videoBlob && (
-            <div className="relative">
-              <video
-                ref={videoRef}
-                src={previewUrl}
-                className="w-full aspect-[9/16] bg-gray-900 rounded-lg"
-                onTimeUpdate={handlePreviewTimeUpdate}
-                onEnded={handlePreviewEnded}
-                playsInline
-                controls
-              />
-            </div>
-          )}
-
-          <div className="space-y-2">
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-gray-600 dark:text-gray-400 truncate flex-1 mr-2">
-                {isProcessing ? processingStatus : (isPreviewPlaying ? 'Đang phát' : 'Sẵn sàng chia sẻ')}
-              </span>
-              <span className="text-gray-600 dark:text-gray-400 flex-shrink-0">{Math.round(progress)}%</span>
-            </div>
-            <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-              <div 
-                className="h-full bg-gradient-to-r from-blue-500 to-indigo-600 rounded-full transition-all duration-300 ease-in-out"
-                style={{ width: `${progress}%` }}
-              />
-            </div>
-          </div>
-
-          {videoBlob && !isProcessing && (
-            <div className="space-y-3">
-              <div className="grid grid-cols-3 gap-2">
-                {platforms.map((platform) => (
-                  <button
-                    key={platform.id}
-                    onClick={() => shareToSocialMedia(platform)}
-                    className={`${platform.color} p-2 rounded-lg flex flex-col items-center justify-center space-y-1 transition-all duration-200
-                      ${!isProcessing && videoBlob ? 'hover:opacity-90 cursor-pointer' : 'opacity-50 cursor-not-allowed'}`}
-                    disabled={isProcessing || !videoBlob}
-                  >
-                    <span className="text-xl text-white">{platform.icon}</span>
-                    <span className="text-white text-xs">{platform.name}</span>
-                  </button>
-                ))}
-              </div>
-
+            {/* Header */}
+            <div className="flex items-center justify-between p-2 border-b border-white/10">
+              <h3 className="text-sm font-semibold text-white">Share Podcast Story</h3>
               <button
-                onClick={downloadVideo}
-                disabled={isProcessing || !videoBlob}
-                className={`w-full flex items-center justify-center text-sm py-2 transition-colors duration-200
-                  ${!isProcessing && videoBlob 
-                    ? 'text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 cursor-pointer' 
-                    : 'text-gray-400 dark:text-gray-600 cursor-not-allowed'}`}
+                onClick={handleClose}
+                className="p-1 text-gray-400 hover:text-white transition-colors"
               >
-                <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                </svg>
-                <span>Tải về máy</span>
+                <XMarkIcon className="w-3 h-3" />
               </button>
             </div>
-          )}
 
-          {!videoBlob && (
-            <div className="space-y-3">
-              <div className="grid grid-cols-3 gap-2">
-                {platforms.map((platform) => (
-                  <div
-                    key={platform.id}
-                    className={`${platform.color} p-2 rounded-lg flex flex-col items-center justify-center space-y-1 opacity-50 cursor-not-allowed`}
-                  >
-                    <span className="text-xl text-white">{platform.icon}</span>
-                    <span className="text-white text-xs">{platform.name}</span>
-                  </div>
-                ))}
-              </div>
-
-              <div
-                className="w-full flex items-center justify-center text-gray-400 dark:text-gray-600 text-sm py-2 cursor-not-allowed"
-              >
-                <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                </svg>
-                <span>Tải về máy</span>
-              </div>
+            {/* Content */}
+            <div className="p-2 space-y-2">
+              {renderStep()}
             </div>
-          )}
+          </motion.div>
         </div>
-      </div>
-    </motion.div>
+      )}
+    </AnimatePresence>
   );
 };
 
