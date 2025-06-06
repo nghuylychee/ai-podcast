@@ -15,18 +15,18 @@ const detectLanguage = (text) => {
 // Danh sách giọng đọc được hỗ trợ
 const voices = {
   'en-US': [
-    { name: 'puck', style: 'casual' },        // Nam, trẻ trung
-    { name: 'alnilam', style: 'formal' },     // Nữ, chuyên nghiệp
+    // { name: 'puck', style: 'casual' },        // Nam, trẻ trung
+    // { name: 'alnilam', style: 'formal' },     // Nữ, chuyên nghiệp
     { name: 'algenib', style: 'storytelling' }, // Nam, kể chuyện
-    { name: 'gacrux', style: 'energetic' },   // Nữ, năng động
-    { name: 'achernar', style: 'deep' }       // Nam, trầm ấm
+    // { name: 'gacrux', style: 'energetic' },   // Nữ, năng động
+    // { name: 'achernar', style: 'deep' }       // Nam, trầm ấm
   ],
   'vi-VN': [
-    { name: 'kore', style: 'casual' },        // Nữ, trẻ trung
-    { name: 'leda', style: 'formal' },        // Nữ, chuyên nghiệp
+    // { name: 'kore', style: 'casual' },        // Nữ, trẻ trung
+    // { name: 'leda', style: 'formal' },        // Nữ, chuyên nghiệp
     { name: 'charon', style: 'storytelling' }, // Nam, kể chuyện
-    { name: 'despina', style: 'energetic' },  // Nữ, năng động
-    { name: 'zephyr', style: 'soft' }         // Nam, dịu dàng
+    // { name: 'despina', style: 'energetic' },  // Nữ, năng động
+    // { name: 'zephyr', style: 'soft' }         // Nam, dịu dàng
   ]
 };
 

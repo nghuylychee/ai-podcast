@@ -44,6 +44,19 @@ const PodcastPlayer = ({ podcast, onNext, onPrevious, onAddToMyPodcasts }) => {
   const videoCanvasRef = useRef(null);
   const volumeTimeoutRef = useRef(null);
 
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [isSharing, setIsSharing] = useState(false);
+  const [shareUrl, setShareUrl] = useState('');
+  const [isRendering, setIsRendering] = useState(false);
+  const [renderProgress, setRenderProgress] = useState(0);
+  const [isClipReady, setIsClipReady] = useState(false);
+  const audioRef = useRef(null);
+  const canvasRef = useRef(null);
+  const videoRef = useRef(null);
+  const mediaRecorderRef = useRef(null);
+  const chunksRef = useRef([]);
+  const renderIntervalRef = useRef(null);
+
   const initializeAudio = async () => {
     if (soundRef.current) {
       soundRef.current.unload();
@@ -513,12 +526,175 @@ const PodcastPlayer = ({ podcast, onNext, onPrevious, onAddToMyPodcasts }) => {
     }
   };
 
-  const handleShare = () => {
-    setShowShareModal(true);
+  const handleShare = async () => {
+    if (!isClipReady) {
+      setIsSharing(true);
+      return;
+    }
+
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: podcast.title,
+          text: `Check out this podcast: ${podcast.title}`,
+          url: shareUrl
+        });
+      } else {
+        // Fallback for browsers that don't support Web Share API
+        await navigator.clipboard.writeText(shareUrl);
+        alert('Share URL copied to clipboard!');
+      }
+    } catch (error) {
+      console.error('Error sharing:', error);
+    }
+  };
+
+  // Function to start background rendering
+  const startBackgroundRendering = async () => {
+    if (isRendering || isClipReady || !canvasRef.current) return;
+    
+    setIsRendering(true);
+    setRenderProgress(0);
+    chunksRef.current = [];
+    
+    try {
+      const canvas = canvasRef.current;
+      const ctx = canvas.getContext('2d');
+
+      // Setup MediaRecorder
+      const stream = canvas.captureStream(30);
+      mediaRecorderRef.current = new MediaRecorder(stream, {
+        mimeType: 'video/webm;codecs=vp9',
+        videoBitsPerSecond: 2500000
+      });
+
+      mediaRecorderRef.current.ondataavailable = (e) => {
+        if (e.data.size > 0) {
+          chunksRef.current.push(e.data);
+        }
+      };
+
+      mediaRecorderRef.current.onstop = async () => {
+        const blob = new Blob(chunksRef.current, { type: 'video/webm' });
+        const url = URL.createObjectURL(blob);
+        setShareUrl(url);
+        setIsClipReady(true);
+        setIsRendering(false);
+      };
+
+      // Draw initial frame
+      const drawFrame = () => {
+        // Background gradient
+        const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+        gradient.addColorStop(0, '#1a1a1a');
+        gradient.addColorStop(1, '#2a2a2a');
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Draw podcast info
+        ctx.fillStyle = '#ffffff';
+        ctx.textAlign = 'center';
+        
+        // Title
+        ctx.font = 'bold 48px Arial';
+        ctx.fillText(podcast.title, canvas.width/2, canvas.height * 0.25);
+        
+        // Topic
+        ctx.font = '32px Arial';
+        ctx.fillStyle = 'rgba(255,255,255,0.8)';
+        ctx.fillText(podcast.topic, canvas.width/2, canvas.height * 0.3);
+
+        // Draw audio visualizer
+        if (soundRef.current && soundRef.current.playing()) {
+          const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+          const analyser = audioContext.createAnalyser();
+          analyser.fftSize = 256;
+          
+          const audio = new Audio(podcast.audio_url);
+          const source = audioContext.createMediaElementSource(audio);
+          source.connect(analyser);
+          analyser.connect(audioContext.destination);
+
+          const bufferLength = analyser.frequencyBinCount;
+          const dataArray = new Uint8Array(bufferLength);
+          analyser.getByteFrequencyData(dataArray);
+
+          const barWidth = (canvas.width * 0.8) / bufferLength;
+          const barSpacing = 2;
+          const maxBarHeight = canvas.height * 0.15;
+          const startX = canvas.width * 0.1;
+          const startY = canvas.height * 0.5;
+
+          ctx.fillStyle = '#4F46E5';
+          for (let i = 0; i < bufferLength; i++) {
+            const barHeight = (dataArray[i] / 255) * maxBarHeight;
+            const x = startX + i * (barWidth + barSpacing);
+            ctx.fillRect(x, startY - barHeight/2, barWidth, barHeight);
+          }
+        }
+
+        if (mediaRecorderRef.current?.state === 'recording') {
+          requestAnimationFrame(drawFrame);
+        }
+      };
+
+      // Start recording
+      mediaRecorderRef.current.start();
+      drawFrame();
+
+      // Simulate progress
+      let progress = 0;
+      renderIntervalRef.current = setInterval(() => {
+        progress += 1;
+        setRenderProgress(progress);
+        if (progress >= 100) {
+          clearInterval(renderIntervalRef.current);
+          mediaRecorderRef.current.stop();
+        }
+      }, 50);
+
+    } catch (error) {
+      console.error('Error starting background rendering:', error);
+      setIsRendering(false);
+    }
+  };
+
+  // Start background rendering when component mounts
+  useEffect(() => {
+    if (podcast && !isClipReady) {
+      startBackgroundRendering();
+    }
+    return () => {
+      if (renderIntervalRef.current) {
+        clearInterval(renderIntervalRef.current);
+      }
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+        mediaRecorderRef.current.stop();
+      }
+    };
+  }, [podcast]);
+
+  // Update share button state
+  useEffect(() => {
+    if (isClipReady) {
+      setIsSharing(false);
+    }
+  }, [isClipReady]);
+
+  const handleBack = () => {
+    onPrevious();
   };
 
   return (
     <div className="w-full max-w-4xl mx-auto">
+      {/* Hidden canvas for recording */}
+      <canvas 
+        ref={canvasRef}
+        className="hidden"
+        width={1080}
+        height={1920}
+      />
+
       <div className="relative overflow-hidden rounded-2xl bg-white/5 backdrop-blur-xl border border-white/10 shadow-2xl p-8">
         {/* Decorative Elements */}
         <div className="absolute inset-0 pointer-events-none">
@@ -643,7 +819,13 @@ const PodcastPlayer = ({ podcast, onNext, onPrevious, onAddToMyPodcasts }) => {
               
               <button
                 onClick={handleShare}
-                className="p-2 text-gray-400 hover:text-white transition-colors"
+                className={`p-2 text-gray-400 hover:text-white transition-colors ${
+                  isSharing || isRendering
+                    ? 'cursor-not-allowed'
+                    : isClipReady
+                    ? 'text-green-500'
+                    : 'text-blue-500 hover:text-blue-600'
+                }`}
                 title="Share Podcast"
               >
                 <ShareIcon className="h-6 w-6" />
